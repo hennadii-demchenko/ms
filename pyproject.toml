@@ -13,3 +13,10 @@ pygame = "^2"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+target-version = ['py310']
+
+[tool.mypy]
+python_version = 3.10
+strict = true
