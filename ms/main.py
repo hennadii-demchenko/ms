@@ -1,19 +1,36 @@
 import random
+from contextlib import contextmanager
+from dataclasses import dataclass, field
 from threading import Event
 from typing import Iterator, Optional
 
 import pygame
+from pygame.event import Event as GameEvent
 
-NUM_COLORS = {
-    1: (0x0, 0x0, 0xFF),
-    2: (0x0, 0x80, 0x0),
-    3: (0xFF, 0x0, 0x0),
-    4: (0x0, 0x0, 0x80),
-    5: (0x80, 0x0, 0x0),
-    6: (0x0, 0x0, 0x80),
-    7: (0x0, 0x0, 0x0),
-    8: (0x80, 0x80, 0x80),
-}
+from ms.draw import NUM_COLORS, draw_border, BG_COLOR, draw_mine
+
+TITLE = "impss' minesweeper"
+
+
+@dataclass(slots=True)
+class Cell:
+    x: int
+    y: int
+    value: int
+    has_mine: bool = False
+    is_flagged: bool = False
+    neighbors: list["Cell"] = field(default_factory=list)
+
+    @property
+    def pos(self) -> tuple[int, int]:
+        return self.x, self.y
+
+    def __add__(self, other: int) -> "Cell":
+        assert isinstance(other, int)
+        self.value += other
+        return self
+
+    __radd__ = __add__
 
 
 class Grid:
@@ -21,8 +38,11 @@ class Grid:
         self.__rows = rows
         self.__cols = cols
         self.num_mines = mines
-        self.board = [[0 for _ in range(rows)] for _ in range(cols)]
         self.clicked_at = None
+        self.board: list[list[Cell]] = [
+            [Cell(x, y, 0) for y in range(self.__rows)]
+            for x in range(self.__cols)
+        ]
 
     def __iter__(self) -> Iterator[tuple[int, int]]:
         """coordinates iterator"""
@@ -60,29 +80,71 @@ class Grid:
         candidates = [coord for coord in self if coord != clicked]
         return random.sample(candidates, self.num_mines)
 
+    def __maybe_add_neighbor(
+        self, cell: Cell, mines: list[tuple[int, int]], x: int, y: int
+    ) -> None:
+        in_bounds = 0 <= x <= self.__cols - 1 and 0 <= x <= self.__rows - 1
+        if in_bounds and (x, y) not in mines:
+            cell.neighbors.append(self.at(x, y))
+
+    def at(self, x: int, y: int) -> Cell:
+        assert 0 <= x <= self.__cols - 1
+        assert 0 <= y <= self.__rows - 1
+        return self.board[x][y]
+
     def generate(self) -> None:
         mines = self.__randomize()
 
         for x, y in mines:
-            self.board[x][y] = -1
+            cell = self.at(x, y)
+            cell.has_mine = True
 
-            for n in self.__neighbors(x, y):
-                nx, ny = n
-                in_x_bounds = 0 <= nx <= self.__cols - 1
-                in_y_bounds = 0 <= ny <= self.__rows - 1
-                if in_x_bounds and in_y_bounds and n not in mines:
-                    self.board[nx][ny] += 1
+            is_left_edge = x == 0
+            is_top_edge = y == 0
+            is_right_edge = x + 1 == self.__cols
+            is_bottom_edge = y + 1 == self.__rows
+
+            if not is_left_edge:
+                self.__maybe_add_neighbor(cell, mines, x - 1, y)
+            if not is_right_edge:
+                self.__maybe_add_neighbor(cell, mines, x + 1, y)
+            if not is_top_edge:
+                self.__maybe_add_neighbor(cell, mines, x, y - 1)
+            if not is_bottom_edge:
+                self.__maybe_add_neighbor(cell, mines, x, y + 1)
+
+            if not is_left_edge and not is_top_edge:
+                self.__maybe_add_neighbor(cell, mines, x - 1, y - 1)
+            if not is_left_edge and not is_bottom_edge:
+                self.__maybe_add_neighbor(cell, mines, x - 1, y + 1)
+            if not is_right_edge and not is_bottom_edge:
+                self.__maybe_add_neighbor(cell, mines, x + 1, y + 1)
+            if not is_right_edge and not is_top_edge:
+                self.__maybe_add_neighbor(cell, mines, x + 1, y - 1)
+
+            for neighbor in cell.neighbors:
+                neighbor += 1
 
 
 class Fog:
     """board uncovering"""
 
 
+@contextmanager
+def pygame_runner() -> Iterator[None]:
+    pygame.init()
+    pygame.display.init()
+    pygame.font.init()
+    pygame.display.set_caption(TITLE)
+    yield
+    pygame.quit()
+
+
 class Game:
     __TITLE = "imps ms"
     INITIAL_SIZE = 1200, 1600
     is_over: Event = Event()
-    size: int = 100
+    size: int = 80
     """
     facade for
     - settings
@@ -95,44 +157,51 @@ class Game:
     def __init__(self) -> None:
         rows, cols, mines = 10, 9, 40  # FIXME
         self.screen = pygame.display.set_mode(self.INITIAL_SIZE)
+        self.screen.fill(BG_COLOR)
         self.grid = Grid(rows, cols, mines)
-        self.cell_font = pygame.font.SysFont("Calibri", self.size, bold=True)
+        self.cell_font = pygame.font.SysFont(
+            "Calibri", int(self.size * 0.75), bold=True
+        )
         pygame.display.set_caption(self.__TITLE)
 
-    @staticmethod
-    def on_start() -> None:
-        pygame.display.flip()
-
-    def on_game_start(self) -> None:
+    def on_start_new(self) -> None:
         self.grid.generate()
         self.is_over.clear()
 
     def on_click(self, x: int, y: int) -> None:
         ...
 
+    def handle(self, event: GameEvent) -> None:
+        if event.type == pygame.QUIT:
+            self.is_over.set()
+        if event.type == pygame.MOUSEBUTTONUP:
+            self.on_click(*pygame.mouse.get_pos())
+
     def update(self) -> None:
         for board_x, board_y in self.grid:
-            value = self.grid.board[board_x][board_y]
+            cell = self.grid.at(board_x, board_y)
             screen_x = board_x * self.size
             screen_y = board_y * self.size
 
-            pygame.draw.rect(
+            r = pygame.draw.rect(
                 self.screen,
-                (0x80, 0x80, 0x80),
+                BG_COLOR,
                 (screen_x, screen_y, self.size, self.size),
             )
 
-            pygame.draw.rect(
-                self.screen,
-                "black",
-                (screen_x, screen_y, self.size, self.size),
-                2,
+            if cell.has_mine:
+                draw_mine(self.screen, r)
+                continue
+
+            draw_border(self.screen, r)
+
+            if cell.value == 0:
+                continue  # FIXME handle empty differently
+
+            text = self.cell_font.render(
+                str(cell.value), True, NUM_COLORS[cell.value]
             )
 
-            if value <= 0:
-                continue  # FIXME handle empty and mines differently
-
-            text = self.cell_font.render(str(value), True, NUM_COLORS[value])
             self.screen.blit(
                 text,
                 (
@@ -145,21 +214,17 @@ class Game:
 
 
 def main() -> int:
-    pygame.init()
-    game = Game()
-    game.on_start()
 
-    # game.on_game_start()  # FIXME REMOVE
-    # game.update()  # FIXME REMOVE
+    with pygame_runner():
+        game = Game()
+        game.on_start_new()  # FIXME REMOVE
+        game.update()
+        # FIXME REMOVE
 
-    while not game.is_over.is_set():
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                game.is_over.set()
-            if event.type == pygame.MOUSEBUTTONUP:
-                game.on_click(*pygame.mouse.get_pos())
+        while not game.is_over.is_set():
+            for event in pygame.event.get():
+                game.handle(event)
 
-    pygame.quit()
     return 0
 
 
