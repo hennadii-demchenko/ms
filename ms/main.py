@@ -1,129 +1,13 @@
-import random
 from contextlib import contextmanager
-from dataclasses import dataclass, field
 from threading import Event
-from typing import Iterator, Optional
+from typing import Iterator
 
 import pygame
-from pygame.event import Event as GameEvent
+from pygame.time import Clock
 
-from ms.draw import NUM_COLORS, draw_border, BG_COLOR, draw_mine
-
-TITLE = "impss' minesweeper"
-
-
-@dataclass(slots=True)
-class Cell:
-    x: int
-    y: int
-    value: int
-    has_mine: bool = False
-    is_flagged: bool = False
-    neighbors: list["Cell"] = field(default_factory=list)
-
-    @property
-    def pos(self) -> tuple[int, int]:
-        return self.x, self.y
-
-    def __add__(self, other: int) -> "Cell":
-        assert isinstance(other, int)
-        self.value += other
-        return self
-
-    __radd__ = __add__
-
-
-class Grid:
-    def __init__(self, rows: int, cols: int, mines: int):
-        self.__rows = rows
-        self.__cols = cols
-        self.num_mines = mines
-        self.clicked_at = None
-        self.board: list[list[Cell]] = [
-            [Cell(x, y, 0) for y in range(self.__rows)]
-            for x in range(self.__cols)
-        ]
-
-    def __iter__(self) -> Iterator[tuple[int, int]]:
-        """coordinates iterator"""
-        yield from (
-            (x, y)
-            for x, col in enumerate(self.board)
-            for y, _ in enumerate(col)
-        )
-
-    def __neighbors(self, x: int, y: int) -> Iterator[tuple[int, int]]:
-        is_left_edge = x - 1 < 0
-        is_top_edge = y - 1 < 0
-        is_right_edge = x + 1 >= self.__cols
-        is_bottom_edge = y + 1 >= self.__rows
-
-        yield from (
-            neigh
-            for neigh in [
-                is_left_edge or (x - 1, y),
-                (is_top_edge or is_left_edge) or (x - 1, y - 1),
-                is_top_edge or (x, y - 1),
-                (is_top_edge or is_right_edge) or (x + 1, y - 1),
-                is_right_edge or (x + 1, y),
-                (is_bottom_edge or is_right_edge) or (x + 1, y + 1),
-                is_bottom_edge or (x, y + 1),
-                (is_bottom_edge or is_left_edge) or (x - 1, y + 1),
-            ]
-            if isinstance(neigh, tuple)
-        )
-
-    def __randomize(
-        self, clicked_at: Optional[tuple[int, int]] = None
-    ) -> list[tuple[int, int]]:
-        clicked = clicked_at or self.clicked_at
-        candidates = [coord for coord in self if coord != clicked]
-        return random.sample(candidates, self.num_mines)
-
-    def __maybe_add_neighbor(
-        self, cell: Cell, mines: list[tuple[int, int]], x: int, y: int
-    ) -> None:
-        in_bounds = 0 <= x <= self.__cols - 1 and 0 <= x <= self.__rows - 1
-        if in_bounds and (x, y) not in mines:
-            cell.neighbors.append(self.at(x, y))
-
-    def at(self, x: int, y: int) -> Cell:
-        assert 0 <= x <= self.__cols - 1
-        assert 0 <= y <= self.__rows - 1
-        return self.board[x][y]
-
-    def generate(self) -> None:
-        mines = self.__randomize()
-
-        for x, y in mines:
-            cell = self.at(x, y)
-            cell.has_mine = True
-
-            is_left_edge = x == 0
-            is_top_edge = y == 0
-            is_right_edge = x + 1 == self.__cols
-            is_bottom_edge = y + 1 == self.__rows
-
-            if not is_left_edge:
-                self.__maybe_add_neighbor(cell, mines, x - 1, y)
-            if not is_right_edge:
-                self.__maybe_add_neighbor(cell, mines, x + 1, y)
-            if not is_top_edge:
-                self.__maybe_add_neighbor(cell, mines, x, y - 1)
-            if not is_bottom_edge:
-                self.__maybe_add_neighbor(cell, mines, x, y + 1)
-
-            if not is_left_edge and not is_top_edge:
-                self.__maybe_add_neighbor(cell, mines, x - 1, y - 1)
-            if not is_left_edge and not is_bottom_edge:
-                self.__maybe_add_neighbor(cell, mines, x - 1, y + 1)
-            if not is_right_edge and not is_bottom_edge:
-                self.__maybe_add_neighbor(cell, mines, x + 1, y + 1)
-            if not is_right_edge and not is_top_edge:
-                self.__maybe_add_neighbor(cell, mines, x + 1, y - 1)
-
-            for neighbor in cell.neighbors:
-                neighbor += 1
+from ms.base import Grid, Cell
+from ms.draw import BG_COLOR
+from ms.mouse import MouseHandler
 
 
 class Fog:
@@ -133,18 +17,14 @@ class Fog:
 @contextmanager
 def pygame_runner() -> Iterator[None]:
     pygame.init()
+    pygame.mixer.quit()
     pygame.display.init()
     pygame.font.init()
-    pygame.display.set_caption(TITLE)
     yield
     pygame.quit()
 
 
 class Game:
-    __TITLE = "imps ms"
-    INITIAL_SIZE = 1200, 1600
-    is_over: Event = Event()
-    size: int = 80
     """
     facade for
     - settings
@@ -154,62 +34,124 @@ class Game:
 
     """
 
+    INITIAL_SIZE = 1200, 1600
+    is_over: Event = Event()
+    size: int = 50
+
     def __init__(self) -> None:
-        rows, cols, mines = 10, 9, 40  # FIXME
-        self.screen = pygame.display.set_mode(self.INITIAL_SIZE)
-        self.screen.fill(BG_COLOR)
-        self.grid = Grid(rows, cols, mines)
-        self.cell_font = pygame.font.SysFont(
-            "Calibri", int(self.size * 0.75), bold=True
-        )
-        pygame.display.set_caption(self.__TITLE)
+        rows, cols, mines = 9, 9, 10  # FIXME: set from settings
+        self.__screen = pygame.display.set_mode(self.INITIAL_SIZE)
+        self.__screen.fill(BG_COLOR)
+        pygame.display.set_caption("imps ms")
 
-    def on_start_new(self) -> None:
-        self.grid.generate()
+        self.__clock = Clock()
+        self.__frame_rate = 100
+
+        self.grid = Grid(rows, cols, mines, scale=self.size)
+        self.generated = False
+
+        self.mouse_handler = MouseHandler(self.grid)
+
+    def start_new(self) -> None:
         self.is_over.clear()
+        self.grid.clear_board()
 
-    def on_click(self, x: int, y: int) -> None:
-        ...
+    def dfs_traverse(self, node: Cell) -> Iterator[Cell]:
+        visited = []
+        if node in visited:
+            return
 
-    def handle(self, event: GameEvent) -> None:
-        if event.type == pygame.QUIT:
-            self.is_over.set()
-        if event.type == pygame.MOUSEBUTTONUP:
-            self.on_click(*pygame.mouse.get_pos())
+        yield node
+        visited.append(node)
+
+        for inner in self.grid.__iter_neighbors__(*node.pos):
+            if inner not in visited:
+                self.dfs_traverse(self.grid.at(*inner))
+    #
+    # def on_left_mdown(self, x: int, y: int):
+    #     for cell in self.grid.__iter_board__():
+    #         if cell.rect.collidepoint(x, y):
+    #             if cell.is_opened or cell.is_flagged:
+    #                 continue
+    #
+    #             if not cell.is_pressed:
+    #                 cell.is_pressed = True
+    #
+    # def on_right(self, x: int, y: int) -> None:
+    #     for cell in self.grid.__iter_board__():
+    #         if cell.rect.collidepoint(x, y):
+    #             if not cell.is_flagged:
+    #                 cell.is_flagged = True
+    #             else:
+    #                 cell.is_flagged = False
+    #                 draw_reset(cell.rect)
+    #
+
+
+
+    # def on_mdown(self, x: int, y: int, left: bool, right: bool) -> None:
+    #     for cell in self.grid.__iter_board__():
+    #         if cell.rect.collidepoint(x, y):
+    #             if not self.grid.generated:
+    #                 self.grid.generate_board(cell.pos)
+    #
+    #             if cell.is_opened:
+    #                 continue
+    #
+    #             if left and not cell.is_pressed:
+    #                 cell.is_pressed = True
+    #
+    #             # if left and not cell.is_opened and not cell.is_flagged:
+    #             #     cell.is_opened = True
+    #
+    #                 # if cell.has_mine: # FIXME
+    #                 #     cell.is_pressed = True
+    #
+    #                 # if cell.value == 0 and not cell.has_mine:
+    #                 #     for adjacent in self.dfs_traverse(cell):
+    #                 #         adjacent.is_opened = True
+    #
+    #             # elif left and cell.is_opened and not cell.is_pressed:
+    #             #     cell.is_pressed = True
+    #             #     # for neighbor in self.grid.__iter_neighbors__(*cell.pos):
+    #             #     #     self.grid.at(*neighbor).is_pressed = True
+    #             #
+    #
+    #             if right and not cell.is_flagged:
+    #                 cell.is_flagged = True
+    #             elif right and cell.is_flagged:
+    #                 cell.is_flagged = False
+    #                 draw_reset(cell.rect)
+    #
+    # def on_mup(self, x: int, y: int) -> None:
+    #     for cell in self.grid.__iter_board__():
+    #         if cell.rect.collidepoint(x, y):
+    #             if cell.is_pressed:
+    #                 cell.is_pressed = False
+
+
+    def on_key_up(self, key: int) -> None:
+        if key == pygame.K_F2:
+            self.start_new()
+        elif key == pygame.K_2:
+            ...
+        elif key == pygame.K_3:
+            ...
+        elif key == pygame.K_1:
+            ...
+
+    def handle_events(self) -> None:
+        for event in pygame.event.get([pygame.QUIT, pygame.KEYUP]):
+            if event.type == pygame.QUIT:
+                self.is_over.set()
+
+            if event.type == pygame.KEYUP:
+                self.on_key_up(event.key)
 
     def update(self) -> None:
-        for board_x, board_y in self.grid:
-            cell = self.grid.at(board_x, board_y)
-            screen_x = board_x * self.size
-            screen_y = board_y * self.size
-
-            r = pygame.draw.rect(
-                self.screen,
-                BG_COLOR,
-                (screen_x, screen_y, self.size, self.size),
-            )
-
-            if cell.has_mine:
-                draw_mine(self.screen, r)
-                continue
-
-            draw_border(self.screen, r)
-
-            if cell.value == 0:
-                continue  # FIXME handle empty differently
-
-            text = self.cell_font.render(
-                str(cell.value), True, NUM_COLORS[cell.value]
-            )
-
-            self.screen.blit(
-                text,
-                (
-                    screen_x + (self.size / 2 - text.get_width() / 2),
-                    screen_y + (self.size / 2 - text.get_height() / 2),
-                ),
-            )
-
+        self.mouse_handler.on_update(*pygame.mouse.get_pos())
+        [self.grid.at(*pos).draw() for pos in self.grid.__iter_coords__()]
+        self.__clock.tick(self.__frame_rate)
         pygame.display.flip()
 
 
@@ -217,13 +159,19 @@ def main() -> int:
 
     with pygame_runner():
         game = Game()
-        game.on_start_new()  # FIXME REMOVE
-        game.update()
-        # FIXME REMOVE
+        game.start_new()  # FIXME REMOVE
+
+        pygame.event.set_blocked(None)
+        pygame.event.set_allowed(pygame.QUIT)
+        pygame.event.set_allowed(pygame.MOUSEBUTTONUP)
+        pygame.event.set_allowed(pygame.MOUSEBUTTONDOWN)
+        pygame.event.set_allowed(pygame.KEYUP)
 
         while not game.is_over.is_set():
-            for event in pygame.event.get():
-                game.handle(event)
+            pygame.event.pump()
+            game.mouse_handler.handle_events()
+            game.handle_events()
+            game.update()
 
     return 0
 
