@@ -5,13 +5,9 @@ from typing import Iterator
 import pygame
 from pygame.time import Clock
 
-from ms.base import Grid, Cell
+from ms.base import Grid
 from ms.draw import BG_COLOR
 from ms.mouse import MouseHandler
-
-
-class Fog:
-    """board uncovering"""
 
 
 @contextmanager
@@ -56,80 +52,6 @@ class Game:
         self.is_over.clear()
         self.grid.clear_board()
 
-    def dfs_traverse(self, node: Cell) -> Iterator[Cell]:
-        visited = []
-        if node in visited:
-            return
-
-        yield node
-        visited.append(node)
-
-        for inner in self.grid.__iter_neighbors__(*node.pos):
-            if inner not in visited:
-                self.dfs_traverse(self.grid.at(*inner))
-    #
-    # def on_left_mdown(self, x: int, y: int):
-    #     for cell in self.grid.__iter_board__():
-    #         if cell.rect.collidepoint(x, y):
-    #             if cell.is_opened or cell.is_flagged:
-    #                 continue
-    #
-    #             if not cell.is_pressed:
-    #                 cell.is_pressed = True
-    #
-    # def on_right(self, x: int, y: int) -> None:
-    #     for cell in self.grid.__iter_board__():
-    #         if cell.rect.collidepoint(x, y):
-    #             if not cell.is_flagged:
-    #                 cell.is_flagged = True
-    #             else:
-    #                 cell.is_flagged = False
-    #                 draw_reset(cell.rect)
-    #
-
-
-
-    # def on_mdown(self, x: int, y: int, left: bool, right: bool) -> None:
-    #     for cell in self.grid.__iter_board__():
-    #         if cell.rect.collidepoint(x, y):
-    #             if not self.grid.generated:
-    #                 self.grid.generate_board(cell.pos)
-    #
-    #             if cell.is_opened:
-    #                 continue
-    #
-    #             if left and not cell.is_pressed:
-    #                 cell.is_pressed = True
-    #
-    #             # if left and not cell.is_opened and not cell.is_flagged:
-    #             #     cell.is_opened = True
-    #
-    #                 # if cell.has_mine: # FIXME
-    #                 #     cell.is_pressed = True
-    #
-    #                 # if cell.value == 0 and not cell.has_mine:
-    #                 #     for adjacent in self.dfs_traverse(cell):
-    #                 #         adjacent.is_opened = True
-    #
-    #             # elif left and cell.is_opened and not cell.is_pressed:
-    #             #     cell.is_pressed = True
-    #             #     # for neighbor in self.grid.__iter_neighbors__(*cell.pos):
-    #             #     #     self.grid.at(*neighbor).is_pressed = True
-    #             #
-    #
-    #             if right and not cell.is_flagged:
-    #                 cell.is_flagged = True
-    #             elif right and cell.is_flagged:
-    #                 cell.is_flagged = False
-    #                 draw_reset(cell.rect)
-    #
-    # def on_mup(self, x: int, y: int) -> None:
-    #     for cell in self.grid.__iter_board__():
-    #         if cell.rect.collidepoint(x, y):
-    #             if cell.is_pressed:
-    #                 cell.is_pressed = False
-
-
     def on_key_up(self, key: int) -> None:
         if key == pygame.K_F2:
             self.start_new()
@@ -150,7 +72,8 @@ class Game:
 
     def update(self) -> None:
         self.mouse_handler.on_update(*pygame.mouse.get_pos())
-        [self.grid.at(*pos).draw() for pos in self.grid.__iter_coords__()]
+        for cell in self.grid.__iter_board__():
+            cell.draw()
         self.__clock.tick(self.__frame_rate)
         pygame.display.flip()
 

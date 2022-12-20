@@ -1,7 +1,8 @@
 import math
 
 import pygame.draw
-from pygame import Rect, Color
+from pygame import Color
+from pygame import Rect
 
 BG_COLOR = Color(0xC0, 0xC0, 0xC0)
 SHADOW_COLOR = Color(0x80, 0x80, 0x80)
@@ -19,50 +20,59 @@ NUM_COLORS = {
 }
 
 
-def draw_flag(rect: Rect):
+def draw_flag(rect: Rect) -> None:
     screen = pygame.display.get_surface()
     offset = max(rect.height, rect.width) // 4
     pygame.draw.polygon(
         screen,
         "black",
         [
-            (rect.left + offset, rect.bottom - offset // 2),
-            (rect.centerx, rect.centery + offset),
-            (rect.right - offset, rect.bottom - offset // 2),
+            (rect.left + offset * 1.2, rect.bottom - offset // 2),
+            (rect.centerx, rect.centery + offset * 1.2),
+            (rect.right - offset * 1.2, rect.bottom - offset // 2),
         ],
     )
     pygame.draw.line(
         screen,
         "black",
-        (rect.centerx, rect.centery + offset),
+        (rect.centerx, rect.centery + offset * 1.25),
         rect.center,
-        offset // 6
+        offset // 4,
     )
     pygame.draw.line(
         screen,
         "red",
-        rect.center,
-        (rect.centerx, rect.top + offset // 1.5),
-        offset // 6
+        (rect.centerx, rect.centery + offset * 0.3),
+        (rect.centerx, rect.top + offset * 0.75),
+        offset // 4,
     )
 
     pygame.draw.polygon(
         screen,
         "red",
         [
-            rect.center,
-            (rect.centerx, rect.top + offset // 1.5),
-            (rect.centerx - rect.width // 3, rect.top + offset * 1.5),
-
+            (rect.centerx, rect.centery + offset * 0.3),
+            (rect.centerx, rect.top + offset * 0.75),
+            (rect.centerx - rect.width // 3.25, rect.centery - offset // 2),
+        ],
+        offset // 6,
+    )
+    pygame.draw.polygon(
+        screen,
+        "red",
+        [
+            (rect.centerx, rect.centery + offset * 0.3),
+            (rect.centerx, rect.top + offset * 0.75),
+            (rect.centerx - rect.width // 3.25, rect.centery - offset // 2),
         ],
     )
 
 
-def draw_reset(rect: Rect):
+def draw_reset(rect: Rect) -> None:
     pygame.draw.rect(pygame.display.get_surface(), BG_COLOR, rect)
 
 
-def draw_empty(rect: Rect, shadow=SHADOW_COLOR):
+def draw_empty(rect: Rect, shadow: Color = SHADOW_COLOR) -> None:
     pygame.draw.rect(pygame.display.get_surface(), shadow, rect, width=1)
 
 
