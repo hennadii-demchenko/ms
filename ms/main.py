@@ -1,5 +1,4 @@
 from contextlib import contextmanager
-from threading import Event
 from typing import Iterator
 
 import pygame
@@ -7,7 +6,7 @@ from pygame.time import Clock
 
 from ms.base import Grid
 from ms.draw import BG_COLOR
-from ms.mouse import MouseHandler
+from ms.mouse import GridClicksHandler
 
 
 @contextmanager
@@ -31,7 +30,8 @@ class Game:
     """
 
     INITIAL_SIZE = 1200, 1600
-    is_over: Event = Event()
+    quit_invoked: bool = False
+    is_over: bool = False
     size: int = 50
 
     def __init__(self) -> None:
@@ -44,13 +44,12 @@ class Game:
         self.__frame_rate = 100
 
         self.grid = Grid(rows, cols, mines, scale=self.size)
-        self.generated = False
 
-        self.mouse_handler = MouseHandler(self.grid)
+        self.mouse_handler = GridClicksHandler(self.grid)
 
     def start_new(self) -> None:
-        self.is_over.clear()
-        self.grid.clear_board()
+        self.is_over = False
+        self.grid.reset_board()
 
     def on_key_up(self, key: int) -> None:
         if key == pygame.K_F2:
@@ -65,15 +64,23 @@ class Game:
     def handle_events(self) -> None:
         for event in pygame.event.get([pygame.QUIT, pygame.KEYUP]):
             if event.type == pygame.QUIT:
-                self.is_over.set()
+                self.quit_invoked = True
 
             if event.type == pygame.KEYUP:
                 self.on_key_up(event.key)
 
     def update(self) -> None:
-        self.mouse_handler.on_update(*pygame.mouse.get_pos())
-        for cell in self.grid.__iter_board__():
+        if not self.is_over:
+            self.mouse_handler.on_update()
+
+        self.is_over = self.grid.generated and self.grid.is_finished
+
+        if self.is_over:
+            self.grid.reveal()
+
+        for cell in self.grid:
             cell.draw()
+
         self.__clock.tick(self.__frame_rate)
         pygame.display.flip()
 
@@ -90,10 +97,11 @@ def main() -> int:
         pygame.event.set_allowed(pygame.MOUSEBUTTONDOWN)
         pygame.event.set_allowed(pygame.KEYUP)
 
-        while not game.is_over.is_set():
+        while not game.quit_invoked:
             pygame.event.pump()
-            game.mouse_handler.handle_events()
             game.handle_events()
+            if not game.is_over:
+                game.mouse_handler.handle_events()
             game.update()
 
     return 0
