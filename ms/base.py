@@ -1,5 +1,6 @@
 import random
 from dataclasses import dataclass
+from enum import Enum
 from typing import Iterator
 from typing import Optional
 
@@ -16,6 +17,29 @@ from ms.draw import NUM_COLORS
 T_COORD = tuple[int, int]
 T_GAME_FIELD = list[list["Cell"]]
 DEBUG = False
+
+
+class Mode(Enum):
+    EASY = 1, 9, 9, 10
+    MEDIUM = 2, 16, 16, 40
+    HARD = 3, 16, 30, 100
+    CUSTOM = 4, -1, -1, -1
+
+    @property
+    def rows(self) -> int:  # rows, cols
+        return self.value[1]
+
+    @property
+    def cols(self) -> int:  # rows, cols
+        return self.value[2]
+
+    @property
+    def size(self) -> T_COORD:
+        return self.rows, self.cols
+
+    @property
+    def num_mines(self) -> int:
+        return self.value[3]
 
 
 @dataclass(slots=True)
@@ -227,7 +251,12 @@ class Grid:
         else:
             return None
 
-    def reset_board(self) -> None:
+    def reset_board(self, new_mode: Optional[Mode] = None) -> None:
+        if new_mode is not None:
+            self.__rows = new_mode.rows
+            self.__cols = new_mode.cols
+            self.num_mines = new_mode.num_mines
+
         self.board.clear()
         self.generated = False
         self.num_opened = 0
