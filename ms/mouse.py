@@ -22,6 +22,8 @@ class GridClicksHandler:
                 if not self.left and not self.right and self.clicked_left:
                     self.on_l_mouse_up()
 
+                # order matters as we have to keep button state ourselves,
+                # otherwise we don't know which button(s) was previously down
                 self.clicked_left, self.clicked_right = self.left, self.right
 
             if event.type == pygame.MOUSEBUTTONDOWN:
@@ -61,7 +63,7 @@ class GridClicksHandler:
                 cell.is_pressed = False
             elif self.left and not hovered.is_opened:  # hold over unopened
                 cell.is_pressed = cell is hovered and not cell.is_flagged
-            elif self.left and hovered.is_opened:
+            elif self.left and hovered.is_opened:  # hold to reveal possible
                 cell.is_pressed = cell in self._grid.eligible_neighbors(
                     *hovered.pos
                 )
