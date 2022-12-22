@@ -1,6 +1,7 @@
 import random
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
 from typing import Iterator
 from typing import Optional
 
@@ -17,6 +18,8 @@ from ms.draw import NUM_COLORS
 T_COORD = tuple[int, int]
 T_GAME_FIELD = list[list["Cell"]]
 DEBUG = False
+
+ROOT_DIR = Path(__file__).parent.parent
 
 
 class Mode(Enum):
@@ -81,11 +84,13 @@ class Cell:
         )
 
     def draw(self) -> None:
-        # if self.dirty:
-        #     return
+        if self.dirty:
+            return
 
         x, y = self.screen_pos
-        font = pygame.font.SysFont("Calibri", int(self.size * 0.75), bold=True)
+        font = pygame.font.Font(
+            ROOT_DIR / "fonts" / "ms.otf", int(self.size * 0.55)
+        )
         debug_font = pygame.font.SysFont(
             "Calibri", int(self.size * 0.2), bold=True
         )

@@ -37,14 +37,14 @@ def draw_flag(rect: Rect) -> None:
         "black",
         (rect.centerx, rect.centery + offset * 1.25),
         rect.center,
-        offset // 4,
+        offset // 3,
     )
     pygame.draw.line(
         screen,
         "red",
         (rect.centerx, rect.centery + offset * 0.3),
         (rect.centerx, rect.top + offset * 0.75),
-        offset // 4,
+        offset // 3,
     )
 
     pygame.draw.polygon(
@@ -174,7 +174,7 @@ def draw_mine(rect: Rect, exploded: bool = False) -> None:
 
 def draw_border(rect: Rect, inverted: bool = False) -> None:
     screen = pygame.display.get_surface()
-    thickness = max(rect.height, rect.width) // 12
+    thickness = max(rect.height, rect.width) // 10
     if inverted:
         highlight, shadow = SHADOW_COLOR, HIGHLIGHT_COLOR
     else:
