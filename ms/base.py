@@ -1,11 +1,13 @@
 import random
 from dataclasses import dataclass
 from enum import Enum
-from pathlib import Path
+from typing import Callable
 from typing import Iterator
 from typing import Optional
 
 import pygame
+from pygame.font import Font
+from pygame.rect import Rect
 
 from ms.draw import BG_COLOR
 from ms.draw import draw_border
@@ -18,8 +20,37 @@ from ms.draw import NUM_COLORS
 T_COORD = tuple[int, int]
 T_GAME_FIELD = list[list["Cell"]]
 DEBUG = False
+T_CALLBACK = Callable[..., None]
 
-ROOT_DIR = Path(__file__).parent.parent
+
+class Button:
+    def __init__(self, rect: Rect):
+        self.rect = rect
+        self.__pressed = False
+        self.__release_callbacks: list[T_CALLBACK] = []
+        self.__press_callbacks: list[T_CALLBACK] = []
+
+    def add_press_callback(self, cb: T_CALLBACK) -> None:
+        self.__press_callbacks.append(cb)
+
+    def add_release_callback(self, cb: T_CALLBACK) -> None:
+        self.__release_callbacks.append(cb)
+
+    @property
+    def pressed(self) -> bool:
+        return self.__pressed
+
+    @pressed.setter
+    def pressed(self, value: bool) -> None:
+        self.__pressed = value
+
+    def trigger_pressed(self) -> None:
+        for callback in self.__press_callbacks:
+            callback()
+
+    def trigger_released(self) -> None:
+        for callback in self.__release_callbacks:
+            callback()
 
 
 class Mode(Enum):
@@ -83,20 +114,13 @@ class Cell:
             self.y * self.size + self.offset[1],
         )
 
-    def draw(self) -> None:
+    def draw(self, font: Font, debug_font: Font) -> None:
         if self.dirty:
             return
 
         x, y = self.screen_pos
-        font = pygame.font.Font(
-            ROOT_DIR / "fonts" / "ms.otf", int(self.size * 0.55)
-        )
-        debug_font = pygame.font.SysFont(
-            "Calibri", int(self.size * 0.2), bold=True
-        )
-        text = font.render(str(self.value), True, NUM_COLORS[self.value])
-        screen = pygame.display.get_surface()
 
+        screen = pygame.display.get_surface()
         draw_reset(self.rect)
         if self.is_pressed:
             draw_empty(self.rect)
@@ -106,27 +130,28 @@ class Cell:
         elif not self.is_opened:
             draw_border(self.rect)
         elif self.is_opened:
+            self.dirty = True
             draw_empty(self.rect)
-            if self.has_mine:
-                # TODO trigger game over
-                draw_mine(self.rect, exploded=self.has_exploded)
-                self.dirty = True
-            else:
-                if DEBUG:
-                    screen.blit(
-                        debug_font.render(str(self.pos), True, "black"),
-                        self.rect.midleft,
-                    )
-                if self.value != 0:
-                    screen.blit(
-                        text,
-                        (
-                            x + (self.size / 2 - text.get_width() / 2),
-                            y + (self.size / 2 - text.get_height() / 2),
-                        ),
-                    )
 
-                self.dirty = True
+            if DEBUG:
+                screen.blit(
+                    debug_font.render(str(self.pos), True, "black"),
+                    self.rect.midleft,
+                )
+
+            if self.has_mine:
+                draw_mine(self.rect, exploded=self.has_exploded)
+            elif self.value != 0:
+                text = font.render(
+                    str(self.value), True, NUM_COLORS[self.value]
+                )
+                screen.blit(
+                    text,
+                    (
+                        x + (self.size / 2 - text.get_width() / 2),
+                        y + (self.size / 2 - text.get_height() / 2),
+                    ),
+                )
 
     def __add__(self, other: int) -> "Cell":
         assert isinstance(other, int)
@@ -139,25 +164,18 @@ class Cell:
     __radd__ = __add__
 
 
-def is_safe(cell: Cell) -> bool:
-    return (cell.is_opened and not cell.has_exploded) or (
-        not cell.is_opened and cell.has_mine
-    )
-
-
 class Grid:
     mines: list[T_COORD] = []
     board: T_GAME_FIELD = []
     generated: bool
 
-    def __init__(
-        self, offset: T_COORD, rows: int, cols: int, mines: int, scale: int
-    ):
-        self.__offset = offset
-        self.__rows = rows
-        self.__cols = cols
+    def __init__(self, offset: T_COORD, mode: Mode, scale: int):
+        self.mode = mode
+        self.__rows = self.mode.rows
+        self.__cols = self.mode.cols
         self.__scale = scale
-        self.num_mines = mines
+        self.offset_x, self.offset_y = offset
+        self.num_mines = self.mode.num_mines
         self.num_opened = 0
         self.num_flagged = 0
         self.num_mines_left = self.num_mines - self.num_flagged
@@ -243,7 +261,7 @@ class Grid:
     def __generate_cells(self) -> T_GAME_FIELD:
         return [
             [
-                Cell(self.__offset, x, y, self.__scale)
+                Cell((self.offset_x, self.offset_y), x, y, self.__scale)
                 for y in range(self.__rows)
             ]
             for x in range(self.__cols)
@@ -266,11 +284,11 @@ class Grid:
         else:
             return None
 
-    def reset_board(self, new_mode: Optional[Mode] = None) -> None:
-        if new_mode is not None:
-            self.__rows = new_mode.rows
-            self.__cols = new_mode.cols
-            self.num_mines = new_mode.num_mines
+    def reset_board(self, mode: Optional[Mode] = None) -> None:
+        if mode is not None:
+            self.__rows = mode.rows
+            self.__cols = mode.cols
+            self.num_mines = mode.num_mines
 
         self.board.clear()
         self.generated = False

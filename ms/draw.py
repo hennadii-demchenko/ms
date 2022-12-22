@@ -1,4 +1,5 @@
 import math
+from typing import Optional
 
 import pygame.draw
 from pygame import Color
@@ -20,6 +21,35 @@ NUM_COLORS = {
 }
 
 
+def draw_new_button(
+    rect: Rect, border_width: int, pressed: bool = False
+) -> None:
+    draw_border(
+        rect,
+        inverted=pressed,
+        inside=True,
+        border_size=border_width,
+    )
+    r = (rect.w * 0.45) - border_width
+    screen = pygame.display.get_surface()
+    pygame.draw.circle(screen, "yellow", rect.center, r)
+    pygame.draw.circle(screen, "black", rect.center, r, 2)
+    pygame.draw.circle(
+        screen, "black", (rect.centerx - r // 3, rect.centery - r // 4), 2
+    )
+    pygame.draw.circle(
+        screen, "black", (rect.centerx + r // 3, rect.centery - r // 4), 2
+    )
+
+    pygame.draw.arc(
+        screen,
+        "black",
+        Rect(rect.centerx - r // 2, rect.centery + r // 16, r, r // 2),
+        math.pi,
+        2 * math.pi,
+    )
+
+
 def draw_flag(rect: Rect) -> None:
     screen = pygame.display.get_surface()
     offset = max(rect.height, rect.width) // 4
@@ -27,9 +57,9 @@ def draw_flag(rect: Rect) -> None:
         screen,
         "black",
         [
-            (rect.left + offset * 1.2, rect.bottom - offset // 2),
-            (rect.centerx, rect.centery + offset * 1.2),
-            (rect.right - offset * 1.2, rect.bottom - offset // 2),
+            (rect.left + offset * 1.2, rect.bottom - offset * 0.6),
+            (rect.centerx, rect.centery + offset),
+            (rect.right - offset * 1.2, rect.bottom - offset * 0.6),
         ],
     )
     pygame.draw.line(
@@ -172,9 +202,16 @@ def draw_mine(rect: Rect, exploded: bool = False) -> None:
     )
 
 
-def draw_border(rect: Rect, inverted: bool = False) -> None:
+def draw_border(
+    rect: Rect,
+    inverted: bool = False,
+    inside: bool = True,
+    border_size: Optional[int] = None,
+) -> None:
     screen = pygame.display.get_surface()
-    thickness = max(rect.height, rect.width) // 10
+    thickness = border_size or max(rect.height, rect.width) // 10
+    direction = int(inside) or -1
+
     if inverted:
         highlight, shadow = SHADOW_COLOR, HIGHLIGHT_COLOR
     else:
@@ -187,9 +224,18 @@ def draw_border(rect: Rect, inverted: bool = False) -> None:
             rect.bottomleft,
             rect.topleft,
             rect.topright,
-            (rect.right - thickness, rect.top + thickness),
-            (rect.left + thickness, rect.top + thickness),
-            (rect.left + thickness, rect.bottom - thickness),
+            (
+                rect.right - thickness * direction,
+                rect.top + thickness * direction,
+            ),
+            (
+                rect.left + thickness * direction,
+                rect.top + thickness * direction,
+            ),
+            (
+                rect.left + thickness * direction,
+                rect.bottom - thickness * direction,
+            ),
             rect.bottomleft,
         ],
     )
@@ -201,9 +247,18 @@ def draw_border(rect: Rect, inverted: bool = False) -> None:
             rect.bottomleft,
             rect.bottomright,
             rect.topright,
-            (rect.right - thickness, rect.top + thickness),
-            (rect.right - thickness, rect.bottom - thickness),
-            (rect.left + thickness, rect.bottom - thickness),
+            (
+                rect.right - thickness * direction,
+                rect.top + thickness * direction,
+            ),
+            (
+                rect.right - thickness * direction,
+                rect.bottom - thickness * direction,
+            ),
+            (
+                rect.left + thickness * direction,
+                rect.bottom - thickness * direction,
+            ),
             rect.bottomleft,
         ],
     )

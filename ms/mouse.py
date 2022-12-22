@@ -1,18 +1,20 @@
 import pygame
 
+from ms.base import Button
 from ms.base import Grid
 
 
-class GridClicksHandler:
+class MouseHandler:
     __RESPONDS_TO = [pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP]
 
-    def __init__(self, grid: Grid):
+    def __init__(self, grid: Grid, *buttons: Button):
         self.left: bool = False
         self.clicked_left: bool = False
         self.clicked_right: bool = False
         self.middle: bool = False
         self.right: bool = False
         self._grid = grid
+        self.buttons = buttons
 
     def handle_events(self) -> None:
         for event in pygame.event.get(self.__RESPONDS_TO):
@@ -33,6 +35,11 @@ class GridClicksHandler:
                     self.on_r_mouse_down()
 
     def on_l_mouse_up(self) -> None:
+        for button in self.buttons:
+            if button.rect.collidepoint(*pygame.mouse.get_pos()):
+                button.pressed = False
+                button.trigger_released()
+
         cell = self._grid.get_cell_under_cursor()
         if cell is None:
             return
@@ -56,6 +63,10 @@ class GridClicksHandler:
         self.__on_mouse_hold()
 
     def __on_mouse_hold(self) -> None:
+        for button in self.buttons:
+            is_over = button.rect.collidepoint(*pygame.mouse.get_pos())
+            button.pressed = self.left and is_over
+
         hovered = self._grid.get_cell_under_cursor()
 
         for cell in self._grid:
