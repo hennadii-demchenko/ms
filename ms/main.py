@@ -64,7 +64,7 @@ class Game:
         self.mode = mode
 
         self.mouse_handler = MouseHandler(self.__grid, self.new_button)
-        self.new_button.add_release_callback(self.start_new)
+        self.new_button.add_release_callbacks(self.start_new)
         self.is_over: bool = False
 
         pygame.display.set_caption("imps ms")
@@ -92,6 +92,19 @@ class Game:
             (self.grid_container.w, self.grid_container.h + self.TOP_MARGIN)
         )
         self.__screen.fill(BG_COLOR)
+
+        draw_border(
+            self.grid_container,
+            inverted=True,
+            inside=True,
+            border_size=self.grid_border_width,
+        )
+        draw_border(
+            self.header,
+            inverted=True,
+            inside=True,
+            border_size=self.grid_border_width,
+        )
 
     def start_new(self, mode: Optional[Mode] = None) -> None:
         if mode is not None:
@@ -127,25 +140,11 @@ class Game:
                 self.on_key_up(event.key)
 
     def on_update(self) -> None:
-        draw_border(
-            self.grid_container,
-            inverted=True,
-            inside=True,
-            border_size=self.grid_border_width,
-        )
-        draw_border(
-            self.header,
-            inverted=True,
-            inside=True,
-            border_size=self.grid_border_width,
-        )
-
         draw_new_button(
             self.new_button.rect,
             self.grid_border_width,
             self.new_button.pressed,
         )
-
         if not self.is_over:
             self.mouse_handler.on_update()
 

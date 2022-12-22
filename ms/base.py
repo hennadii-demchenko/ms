@@ -30,11 +30,11 @@ class Button:
         self.__release_callbacks: list[T_CALLBACK] = []
         self.__press_callbacks: list[T_CALLBACK] = []
 
-    def add_press_callback(self, cb: T_CALLBACK) -> None:
-        self.__press_callbacks.append(cb)
+    def add_press_callbacks(self, *cbs: T_CALLBACK) -> None:
+        self.__press_callbacks.extend(cbs)
 
-    def add_release_callback(self, cb: T_CALLBACK) -> None:
-        self.__release_callbacks.append(cb)
+    def add_release_callbacks(self, *cbs: T_CALLBACK) -> None:
+        self.__release_callbacks.extend(cbs)
 
     @property
     def pressed(self) -> bool:
