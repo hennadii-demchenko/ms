@@ -42,7 +42,10 @@ class Game:
         self.__screen = pygame.display.set_mode(self.INITIAL_SIZE)
         self.__clock = Clock()
         self.__frame_rate = 100
+        grid_offset = 100, 100
+
         self.__grid = Grid(
+            grid_offset,
             self.mode.rows,
             self.mode.cols,
             self.mode.num_mines,

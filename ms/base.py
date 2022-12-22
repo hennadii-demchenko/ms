@@ -44,6 +44,7 @@ class Mode(Enum):
 
 @dataclass(slots=True)
 class Cell:
+    offset: T_COORD
     x: int
     y: int
     size: int
@@ -63,7 +64,7 @@ class Cell:
             self._rect = pygame.draw.rect(
                 pygame.display.get_surface(),
                 BG_COLOR,
-                (self.x * self.size, self.y * self.size, self.size, self.size),
+                (*self.screen_pos, self.size, self.size),
             )
 
         return self._rect
@@ -74,7 +75,10 @@ class Cell:
 
     @property
     def screen_pos(self) -> T_COORD:
-        return self.x * self.size, self.y * self.size
+        return (
+            self.x * self.size + self.offset[0],
+            self.y * self.size + self.offset[1],
+        )
 
     def draw(self) -> None:
         # if self.dirty:
@@ -141,7 +145,10 @@ class Grid:
     board: T_GAME_FIELD = []
     generated: bool
 
-    def __init__(self, rows: int, cols: int, mines: int, scale: int):
+    def __init__(
+        self, offset: T_COORD, rows: int, cols: int, mines: int, scale: int
+    ):
+        self.__offset = offset
         self.__rows = rows
         self.__cols = cols
         self.__scale = scale
@@ -230,7 +237,10 @@ class Grid:
 
     def __generate_cells(self) -> T_GAME_FIELD:
         return [
-            [Cell(x, y, self.__scale) for y in range(self.__rows)]
+            [
+                Cell(self.__offset, x, y, self.__scale)
+                for y in range(self.__rows)
+            ]
             for x in range(self.__cols)
         ]
 
