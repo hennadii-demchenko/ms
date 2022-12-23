@@ -6,16 +6,12 @@ from typing import Iterator
 from typing import Optional
 
 import pygame
-from pygame.font import Font
 from pygame.rect import Rect
 
+from ms.draw import AssetArtist
 from ms.draw import BG_COLOR
-from ms.draw import draw_border
-from ms.draw import draw_empty
 from ms.draw import draw_flag
 from ms.draw import draw_mine
-from ms.draw import draw_reset
-from ms.draw import NUM_COLORS
 
 T_COORD = tuple[int, int]
 T_GAME_FIELD = list[list["Cell"]]
@@ -114,44 +110,33 @@ class Cell:
             self.y * self.size + self.offset[1],
         )
 
-    def draw(self, font: Font, debug_font: Font) -> None:
+    def draw(self, assets: AssetArtist) -> None:
         if self.dirty:
             return
 
-        x, y = self.screen_pos
+        if DEBUG:
+            pygame.display.get_surface().blit(
+                assets.debug_font.render(str(self.pos), True, "black"),
+                self.rect.midleft,
+            )
 
-        screen = pygame.display.get_surface()
-        draw_reset(self.rect)
         if self.is_pressed:
-            draw_empty(self.rect)
+            assets.draw_empty(self.rect)
         elif self.is_flagged:
-            draw_border(self.rect)
+            assets.draw_unopen(self.rect)
+            # TODO replace with image
             draw_flag(self.rect)
         elif not self.is_opened:
-            draw_border(self.rect)
+            assets.draw_unopen(self.rect)
         elif self.is_opened:
             self.dirty = True
-            draw_empty(self.rect)
+            assets.draw_empty(self.rect)
 
-            if DEBUG:
-                screen.blit(
-                    debug_font.render(str(self.pos), True, "black"),
-                    self.rect.midleft,
-                )
-
+            # TODO replace with image
             if self.has_mine:
                 draw_mine(self.rect, exploded=self.has_exploded)
             elif self.value != 0:
-                text = font.render(
-                    str(self.value), True, NUM_COLORS[self.value]
-                )
-                screen.blit(
-                    text,
-                    (
-                        x + (self.size / 2 - text.get_width() / 2),
-                        y + (self.size / 2 - text.get_height() / 2),
-                    ),
-                )
+                assets.draw_value(self.rect, self.value)
 
     def __add__(self, other: int) -> "Cell":
         assert isinstance(other, int)

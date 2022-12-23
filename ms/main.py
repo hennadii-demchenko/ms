@@ -1,5 +1,4 @@
 from contextlib import contextmanager
-from pathlib import Path
 from typing import Iterator
 from typing import Optional
 
@@ -9,13 +8,10 @@ from pygame.time import Clock
 from ms.base import Button
 from ms.base import Grid
 from ms.base import Mode
+from ms.draw import AssetArtist
 from ms.draw import BG_COLOR
 from ms.draw import draw_border
-from ms.draw import draw_new_button
 from ms.mouse import MouseHandler
-
-
-ROOT_DIR = Path(__file__).parent.parent
 
 
 @contextmanager
@@ -50,12 +46,9 @@ class Game:
         self.__clock = Clock()
         self.__frame_rate = 100
 
-        self.font = pygame.font.Font(
-            ROOT_DIR / "fonts" / "ms.otf", int(self.size * 0.55)
-        )
-        self.debug_font = pygame.font.SysFont(
-            "Calibri", int(self.size * 0.2), bold=True
-        )
+        self.artist = AssetArtist(self.size)
+        self.artist.setup_assets()
+
         self.grid_border_width = self.size // 5
         self.header = pygame.rect.Rect(0, 0, 0, self.TOP_MARGIN)
         self.new_button = Button(pygame.Rect(*self.header.center, 75, 75))
@@ -97,13 +90,13 @@ class Game:
             self.grid_container,
             inverted=True,
             inside=True,
-            border_size=self.grid_border_width,
+            width=self.grid_border_width,
         )
         draw_border(
             self.header,
             inverted=True,
             inside=True,
-            border_size=self.grid_border_width,
+            width=self.grid_border_width,
         )
 
     def start_new(self, mode: Optional[Mode] = None) -> None:
@@ -140,11 +133,7 @@ class Game:
                 self.on_key_up(event.key)
 
     def on_update(self) -> None:
-        draw_new_button(
-            self.new_button.rect,
-            self.grid_border_width,
-            self.new_button.pressed,
-        )
+        self.artist.draw_new(self.new_button.rect, self.new_button.pressed)
         if not self.is_over:
             self.mouse_handler.on_update()
 
@@ -154,7 +143,7 @@ class Game:
             self.__grid.reveal()
 
         for cell in self.__grid:
-            cell.draw(self.font, self.debug_font)
+            cell.draw(self.artist)
 
         self.__clock.tick(self.FRAME_RATE)
 

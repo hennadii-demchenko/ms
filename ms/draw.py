@@ -20,35 +20,61 @@ NUM_COLORS = {
     7: Color(0x0, 0x0, 0x0),
     8: SHADOW_COLOR,
 }
+ROOT_DIR = Path(__file__).parent.parent
 
 
-def draw_new_button(
-    rect: Rect, border_width: int, pressed: bool = False
-) -> None:
-    draw_border(
-        rect,
-        inverted=pressed,
-        inside=True,
-        border_size=border_width,
-    )
-    r = (rect.w * 0.45) - border_width
-    screen = pygame.display.get_surface()
-    pygame.draw.circle(screen, "yellow", rect.center, r)
-    pygame.draw.circle(screen, "black", rect.center, r, 2)
-    pygame.draw.circle(
-        screen, "black", (rect.centerx - r // 3, rect.centery - r // 4), 2
-    )
-    pygame.draw.circle(
-        screen, "black", (rect.centerx + r // 3, rect.centery - r // 4), 2
-    )
+class AssetArtist:
+    def __init__(self, size: int):
+        self.__screen = pygame.display.get_surface()
+        self.font = pygame.font.Font(
+            ROOT_DIR / "fonts" / "ms.otf", int(size * 0.55)
+        )
+        self.debug_font = pygame.font.SysFont(
+            "Calibri", int(size * 0.2), bold=True
+        )
 
-    pygame.draw.arc(
-        screen,
-        "black",
-        Rect(rect.centerx - r // 2, rect.centery + r // 16, r, r // 2),
-        math.pi,
-        2 * math.pi,
-    )
+        self.unopened = pygame.image.load(ROOT_DIR / "sprites/unopened.png")
+        self.new_pressed = pygame.image.load(
+            ROOT_DIR / "sprites/new_pressed.png"
+        )
+        self.new_unpressed = pygame.image.load(
+            ROOT_DIR / "sprites/new_unpressed.png"
+        )
+        self.empty = pygame.image.load(ROOT_DIR / "sprites/empty.png")
+
+        self.unopened = pygame.transform.scale(self.unopened, (size, size))
+        self.empty = pygame.transform.scale(self.empty, (size, size))
+        self.new_pressed = pygame.transform.scale(self.new_pressed, (75, 75))
+        self.new_unpressed = pygame.transform.scale(
+            self.new_unpressed, (75, 75)
+        )
+
+    def setup_assets(self) -> None:
+        self.unopened = self.unopened.convert()
+        self.empty = self.empty.convert()
+        self.new_pressed = self.new_pressed.convert()
+        self.new_unpressed = self.new_unpressed.convert()
+
+    def draw_empty(self, rect: Rect) -> None:
+        self.__screen.blit(self.empty, rect)
+
+    def draw_unopen(self, rect: Rect) -> None:
+        self.__screen.blit(self.unopened, rect)
+
+    def draw_value(self, rect: Rect, value: int) -> None:
+        if value == 0:
+            return
+
+        text = self.font.render(str(value), True, NUM_COLORS[value])
+        centered_position = (
+            rect.left + (rect.w / 2 - text.get_width() / 2),
+            rect.top + (rect.h / 2 - text.get_height() / 2),
+        )
+        self.__screen.blit(text, centered_position)
+
+    def draw_new(self, rect: Rect, is_pressed: bool) -> None:
+        sprite = self.new_pressed if is_pressed else self.new_unpressed
+        self.__screen.blit(sprite, rect)
 
 
 def draw_flag(rect: Rect) -> None:
@@ -97,14 +123,6 @@ def draw_flag(rect: Rect) -> None:
             (rect.centerx - rect.width // 3.25, rect.centery - offset // 2),
         ],
     )
-
-
-def draw_reset(rect: Rect) -> None:
-    pygame.draw.rect(pygame.display.get_surface(), BG_COLOR, rect)
-
-
-def draw_empty(rect: Rect, shadow: Color = SHADOW_COLOR) -> None:
-    pygame.draw.rect(pygame.display.get_surface(), shadow, rect, width=1)
 
 
 def draw_mine(rect: Rect, exploded: bool = False) -> None:
@@ -207,10 +225,10 @@ def draw_border(
     rect: Rect,
     inverted: bool = False,
     inside: bool = True,
-    border_size: Optional[int] = None,
+    width: Optional[int] = None,
 ) -> None:
     screen = pygame.display.get_surface()
-    thickness = border_size or max(rect.height, rect.width) // 10
+    thickness = width or max(rect.height, rect.width) // 10
     direction = int(inside) or -1
 
     if inverted:
@@ -263,4 +281,4 @@ def draw_border(
             rect.bottomleft,
         ],
     )
-    draw_empty(rect, shadow)
+    pygame.draw.rect(screen, shadow, rect, width=1)
