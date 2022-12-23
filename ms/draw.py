@@ -62,11 +62,13 @@ class AssetArtist:
     def __init__(self, size: int):
         self.__screen = pygame.display.get_surface()
         self.font = pygame.font.Font(
-            ROOT_DIR / "fonts" / "ms.otf", int(size * 0.55)
+            ROOT_DIR / "fonts/ms.otf", int(size * 0.55)
         )
         self.debug_font = pygame.font.SysFont(
             "Calibri", int(size * 0.2), bold=True
         )
+        self.nums_margin = 0
+        self.nums_width = 0
 
         self.unopened = pygame.image.load(ROOT_DIR / "sprites/unopened.png")
         self.new_pressed = pygame.image.load(
@@ -76,6 +78,19 @@ class AssetArtist:
             ROOT_DIR / "sprites/new_unpressed.png"
         )
         self.empty = pygame.image.load(ROOT_DIR / "sprites/empty.png")
+        self.nums_bg = pygame.image.load(ROOT_DIR / "sprites/nums_bg.png")
+        self.nums_map = {
+            0: pygame.image.load(ROOT_DIR / "sprites/d0.png"),
+            1: pygame.image.load(ROOT_DIR / "sprites/d1.png"),
+            2: pygame.image.load(ROOT_DIR / "sprites/d2.png"),
+            3: pygame.image.load(ROOT_DIR / "sprites/d3.png"),
+            4: pygame.image.load(ROOT_DIR / "sprites/d4.png"),
+            5: pygame.image.load(ROOT_DIR / "sprites/d5.png"),
+            6: pygame.image.load(ROOT_DIR / "sprites/d6.png"),
+            7: pygame.image.load(ROOT_DIR / "sprites/d7.png"),
+            8: pygame.image.load(ROOT_DIR / "sprites/d8.png"),
+            9: pygame.image.load(ROOT_DIR / "sprites/d9.png"),
+        }
 
         self.unopened = pygame.transform.scale(self.unopened, (size, size))
         self.empty = pygame.transform.scale(self.empty, (size, size))
@@ -84,11 +99,27 @@ class AssetArtist:
             self.new_unpressed, (75, 75)
         )
 
+    def derive_nums_size(self, mines_nums_rect: Rect) -> None:
+        self.nums_bg = pygame.transform.scale(
+            self.nums_bg, mines_nums_rect.size
+        )
+
+        margin = mines_nums_rect.w // 20
+        width = (mines_nums_rect.width - 3 * margin) // 3
+        height = mines_nums_rect.height - 2 * margin
+
+        self.nums_margin = margin
+        self.nums_width = width
+
+        for num, image in self.nums_map.items():
+            self.nums_map[num] = pygame.transform.scale(image, (width, height))
+
     def setup_assets(self) -> None:
         self.unopened = self.unopened.convert()
         self.empty = self.empty.convert()
         self.new_pressed = self.new_pressed.convert()
         self.new_unpressed = self.new_unpressed.convert()
+        self.nums_bg = self.nums_bg.convert()
 
     def draw_empty(self, rect: Rect) -> None:
         self.__screen.blit(self.empty, rect)
@@ -96,7 +127,7 @@ class AssetArtist:
     def draw_unopen(self, rect: Rect) -> None:
         self.__screen.blit(self.unopened, rect)
 
-    def draw_value(self, rect: Rect, value: int) -> None:
+    def draw_cell_value(self, rect: Rect, value: int) -> None:
         if value == 0:
             return
 
@@ -106,6 +137,27 @@ class AssetArtist:
             rect.top + (rect.h / 2 - text.get_height() / 2),
         )
         self.__screen.blit(text, centered_position)
+
+    def draw_score_value(self, rect: Rect, value: int) -> None:
+        self.__screen.blit(self.nums_bg, rect)
+        self.__screen.blit(
+            self.nums_map[value // 100],
+            (rect.left + self.nums_margin, rect.top + self.nums_margin),
+        )
+        self.__screen.blit(
+            self.nums_map[value // 10 % 10],
+            (
+                rect.left + 2 * self.nums_margin + self.nums_width,
+                rect.top + self.nums_margin,
+            ),
+        )
+        self.__screen.blit(
+            self.nums_map[value % 10],
+            (
+                rect.left + 3 * self.nums_margin + 2 * self.nums_width,
+                rect.top + self.nums_margin,
+            ),
+        )
 
     def draw_new(self, button: Button) -> None:
         if not button.dirty:

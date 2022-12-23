@@ -1,6 +1,7 @@
 import random
 from dataclasses import dataclass
 from enum import Enum
+from time import perf_counter
 from typing import Iterator
 from typing import Optional
 
@@ -19,7 +20,7 @@ DEBUG = False
 class Mode(Enum):
     EASY = 1, 9, 9, 10
     MEDIUM = 2, 16, 16, 40
-    HARD = 3, 16, 30, 100
+    HARD = 3, 16, 30, 99
     CUSTOM = 4, -1, -1, -1
 
     @property
@@ -100,7 +101,7 @@ class Cell:
             if self.has_mine:  # TODO replace with image
                 draw_mine(self.rect, exploded=self.has_exploded)
             elif self.value != 0:
-                assets.draw_value(self.rect, self.value)
+                assets.draw_cell_value(self.rect, self.value)
 
     def __add__(self, other: int) -> "Cell":
         assert isinstance(other, int)
@@ -116,7 +117,6 @@ class Cell:
 class Grid:
     mines: list[T_COORD] = []
     board: T_GAME_FIELD = []
-    generated: bool
 
     def __init__(self, offset: T_COORD, mode: Mode, scale: int):
         self.mode = mode
@@ -124,10 +124,13 @@ class Grid:
         self.__cols = self.mode.cols
         self.__scale = scale
         self.offset_x, self.offset_y = offset
-        self.num_mines = self.mode.num_mines
+        self.generated = False
+        self.revealed = False
+        self.__started_at: float = perf_counter()
+        self.elapsed: float = 0.0
+        self.num_mines: int = self.mode.num_mines
         self.num_opened = 0
         self.num_flagged = 0
-        self.num_mines_left = self.num_mines - self.num_flagged
         self.reset_board()
 
     def __iter__(self) -> Iterator[Cell]:
@@ -139,7 +142,7 @@ class Grid:
 
     @property
     def left_unflagged(self) -> int:
-        return self.num_mines - self.num_flagged
+        return max(self.num_mines - self.num_flagged, 0)
 
     @property
     def left_unopened(self) -> int:
@@ -241,12 +244,17 @@ class Grid:
 
         self.board.clear()
         self.generated = False
+        self.revealed = False
+        self.elapsed = 0.0
         self.num_opened = 0
         self.num_flagged = 0
         self.board = self.__generate_cells()
 
     def on_open(self, cell: Cell) -> None:
         # FIXME: get rid of recursion
+        if cell.is_flagged:
+            return
+
         if cell.has_mine:
             cell.has_exploded = True
 
@@ -277,8 +285,13 @@ class Grid:
                     cell += 1
 
         self.generated = True
+        self.__started_at = perf_counter()
 
     def reveal(self) -> None:
         for cell in self.unopened():
             if cell.has_mine:
                 cell.is_opened = True
+
+        if not self.revealed:
+            self.elapsed = perf_counter() - self.__started_at
+            self.revealed = True

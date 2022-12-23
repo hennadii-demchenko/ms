@@ -1,19 +1,29 @@
+from typing import Callable
+
 import pygame
 
 from ms.base import Grid
 from ms.draw import Button
 
+T_CB = Callable[..., None]
+
 
 class MouseHandler:
     __RESPONDS_TO = [pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP]
 
-    def __init__(self, grid: Grid, *buttons: Button):
+    def __init__(
+        self,
+        grid: Grid,
+        on_flag_callback: T_CB,
+        *buttons: Button,
+    ):
         self.left: bool = False
         self.clicked_left: bool = False
         self.clicked_right: bool = False
         self.middle: bool = False
         self.right: bool = False
-        self._grid = grid
+        self.__grid = grid
+        self.__on_flag_callback = on_flag_callback
         self.buttons = buttons
 
     def handle_events(self) -> None:
@@ -41,24 +51,25 @@ class MouseHandler:
                 button.pressed = False
                 button.trigger_released()
 
-        cell = self._grid.get_cell_under(mouse_pos)
+        cell = self.__grid.get_cell_under(mouse_pos)
         if cell is None:
             return
 
-        if not self._grid.generated:
-            self._grid.generate_board(cell.pos)
-            self._grid.generated = True
+        if not self.__grid.generated:
+            self.__grid.generate_board(cell.pos)
+            self.__grid.generated = True
 
-        self._grid.on_open(cell)
+        self.__grid.on_open(cell)
 
     def on_r_mouse_down(self) -> None:
-        cell = self._grid.get_cell_under(pygame.mouse.get_pos())
+        cell = self.__grid.get_cell_under(pygame.mouse.get_pos())
 
         if cell is None or cell.is_opened:
             return
 
         cell.is_flagged = not cell.is_flagged
-        self._grid.num_flagged += cell.is_flagged or -1
+        self.__grid.num_flagged += int(cell.is_flagged) or -1
+        self.__on_flag_callback()
 
     def on_update(self) -> None:
         self.__on_mouse_hold()
@@ -69,15 +80,18 @@ class MouseHandler:
             is_over = button.rect.collidepoint(*mouse_pos)
             button.pressed = self.left and is_over
 
-        hovered = self._grid.get_cell_under(mouse_pos)
+        hovered = self.__grid.get_cell_under(mouse_pos)
 
-        for cell in self._grid:
-            if not self.left or hovered is None:  # no mouse hold over any cell
+        for cell in self.__grid:
+            # no mouse hold over any cell
+            if not self.left or hovered is None:
                 cell.is_pressed = False
-            elif self.left and not hovered.is_opened:  # hold over unopened
+            # hold over unopened
+            elif self.left and not hovered.is_opened:
                 cell.is_pressed = cell is hovered and not cell.is_flagged
-            elif self.left and hovered.is_opened:  # hold to reveal possible
-                cell.is_pressed = cell in self._grid.eligible_neighbors(
+            # hold to reveal possible
+            elif self.left and hovered.is_opened and not hovered.is_flagged:
+                cell.is_pressed = cell in self.__grid.eligible_neighbors(
                     *hovered.pos
                 )
             else:

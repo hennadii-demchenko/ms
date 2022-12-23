@@ -1,4 +1,5 @@
 from contextlib import contextmanager
+from time import perf_counter
 from typing import Iterator
 from typing import Optional
 
@@ -44,25 +45,27 @@ class Game:
         # TODO persistent settings
         self.__screen = pygame.display.set_mode((0, 0))
         pygame.display.set_caption("imps ms")
+        perf_counter()
 
         self.is_over: bool = False
         self.grid_border_width = self.size // 5
 
-        self.__frame_rate = 100
         self.__clock = Clock()
+        self.elapsed = 0
         self.artist = AssetArtist(self.size)
         self.__grid = Grid((0, 0), mode, scale=self.size)
 
         self.header = pygame.rect.Rect(0, 0, 0, self.TOP_MARGIN)
-        self.grid_container = pygame.rect.Rect(0, self.TOP_MARGIN, 0, 0)
-
         self.new_button = Button(pygame.Rect(*self.header.center, 75, 75))
         self.new_button.add_release_callbacks(self.start_new)
+        self.grid_container = pygame.rect.Rect(0, self.TOP_MARGIN, 0, 0)
+        self.mode = mode
 
         self.artist.setup_assets()
-        self.mouse_handler = MouseHandler(self.__grid, self.new_button)
-
-        self.mode = mode
+        self.artist.derive_nums_size(self.mines_left_container)
+        self.mouse_handler = MouseHandler(
+            self.__grid, self.update_flags_display, self.new_button
+        )
 
     @property
     def mode(self) -> Mode:
@@ -88,6 +91,25 @@ class Game:
         )
         self.__screen.fill(BG_COLOR)
 
+        self.mines_left_container = pygame.rect.Rect(
+            self.header.left + self.grid_border_width * 2,
+            self.new_button.rect.top,
+            125,  # FIXME
+            self.new_button.rect.h,
+        )
+        self.time_elapsed_container = pygame.rect.Rect(
+            self.header.right - 100 - 2 * self.grid_border_width,
+            self.new_button.rect.top,
+            125,
+            self.new_button.rect.h,
+        )
+
+    def start_new(self, mode: Optional[Mode] = None) -> None:
+        if mode is not None:
+            self.mode = mode
+        self.is_over = False
+        self.__grid.reset_board(mode)
+        self.new_button.dirty = True
         draw_border(
             self.grid_container,
             inverted=True,
@@ -100,13 +122,12 @@ class Game:
             inside=True,
             width=self.grid_border_width,
         )
+        self.update_flags_display()
 
-    def start_new(self, mode: Optional[Mode] = None) -> None:
-        if mode is not None:
-            self.mode = mode
-        self.is_over = False
-        self.__grid.reset_board(mode)
-        self.new_button.dirty = True
+    def update_flags_display(self) -> None:
+        self.artist.draw_score_value(
+            self.mines_left_container, self.__grid.left_unflagged
+        )
 
     def on_key_up(self, key: int) -> None:
         if key == pygame.K_F2:
