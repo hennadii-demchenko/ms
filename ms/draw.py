@@ -1,5 +1,6 @@
 import math
 from pathlib import Path
+from typing import Callable
 from typing import Optional
 
 import pygame.draw
@@ -21,6 +22,40 @@ NUM_COLORS = {
     8: SHADOW_COLOR,
 }
 ROOT_DIR = Path(__file__).parent.parent
+
+T_CALLBACK = Callable[..., None]
+
+
+class Button:
+    def __init__(self, rect: Rect):
+        self.dirty = True
+        self.rect = rect
+        self.__pressed = False
+        self.__release_callbacks: list[T_CALLBACK] = []
+        self.__press_callbacks: list[T_CALLBACK] = []
+
+    def add_press_callbacks(self, *cbs: T_CALLBACK) -> None:
+        self.__press_callbacks.extend(cbs)
+
+    def add_release_callbacks(self, *cbs: T_CALLBACK) -> None:
+        self.__release_callbacks.extend(cbs)
+
+    @property
+    def pressed(self) -> bool:
+        return self.__pressed
+
+    @pressed.setter
+    def pressed(self, value: bool) -> None:
+        self.dirty = self.__pressed != value
+        self.__pressed = value
+
+    def trigger_pressed(self) -> None:
+        for callback in self.__press_callbacks:
+            callback()
+
+    def trigger_released(self) -> None:
+        for callback in self.__release_callbacks:
+            callback()
 
 
 class AssetArtist:
@@ -72,9 +107,12 @@ class AssetArtist:
         )
         self.__screen.blit(text, centered_position)
 
-    def draw_new(self, rect: Rect, is_pressed: bool) -> None:
-        sprite = self.new_pressed if is_pressed else self.new_unpressed
-        self.__screen.blit(sprite, rect)
+    def draw_new(self, button: Button) -> None:
+        if not button.dirty:
+            return
+        sprite = self.new_pressed if button.pressed else self.new_unpressed
+        self.__screen.blit(sprite, button.rect)
+        button.dirty = False
 
 
 def draw_flag(rect: Rect) -> None:

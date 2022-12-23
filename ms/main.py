@@ -5,11 +5,11 @@ from typing import Optional
 import pygame
 from pygame.time import Clock
 
-from ms.base import Button
 from ms.base import Grid
 from ms.base import Mode
 from ms.draw import AssetArtist
 from ms.draw import BG_COLOR
+from ms.draw import Button
 from ms.draw import draw_border
 from ms.mouse import MouseHandler
 
@@ -36,31 +36,33 @@ class Game:
 
     quit_invoked: bool = False
     size: int = 40  # TODO configure
-    FRAME_RATE = 1020
+    FRAME_RATE = 100
     TOP_MARGIN = 100
     __mode: Mode
 
     def __init__(self, mode: Mode = Mode.EASY) -> None:
         # TODO persistent settings
         self.__screen = pygame.display.set_mode((0, 0))
-        self.__clock = Clock()
-        self.__frame_rate = 100
-
-        self.artist = AssetArtist(self.size)
-        self.artist.setup_assets()
-
-        self.grid_border_width = self.size // 5
-        self.header = pygame.rect.Rect(0, 0, 0, self.TOP_MARGIN)
-        self.new_button = Button(pygame.Rect(*self.header.center, 75, 75))
-        self.grid_container = pygame.rect.Rect(0, self.TOP_MARGIN, 0, 0)
-        self.__grid = Grid((0, 0), mode, scale=self.size)
-        self.mode = mode
-
-        self.mouse_handler = MouseHandler(self.__grid, self.new_button)
-        self.new_button.add_release_callbacks(self.start_new)
-        self.is_over: bool = False
-
         pygame.display.set_caption("imps ms")
+
+        self.is_over: bool = False
+        self.grid_border_width = self.size // 5
+
+        self.__frame_rate = 100
+        self.__clock = Clock()
+        self.artist = AssetArtist(self.size)
+        self.__grid = Grid((0, 0), mode, scale=self.size)
+
+        self.header = pygame.rect.Rect(0, 0, 0, self.TOP_MARGIN)
+        self.grid_container = pygame.rect.Rect(0, self.TOP_MARGIN, 0, 0)
+
+        self.new_button = Button(pygame.Rect(*self.header.center, 75, 75))
+        self.new_button.add_release_callbacks(self.start_new)
+
+        self.artist.setup_assets()
+        self.mouse_handler = MouseHandler(self.__grid, self.new_button)
+
+        self.mode = mode
 
     @property
     def mode(self) -> Mode:
@@ -104,6 +106,7 @@ class Game:
             self.mode = mode
         self.is_over = False
         self.__grid.reset_board(mode)
+        self.new_button.dirty = True
 
     def on_key_up(self, key: int) -> None:
         if key == pygame.K_F2:
@@ -133,7 +136,8 @@ class Game:
                 self.on_key_up(event.key)
 
     def on_update(self) -> None:
-        self.artist.draw_new(self.new_button.rect, self.new_button.pressed)
+        self.artist.draw_new(self.new_button)
+
         if not self.is_over:
             self.mouse_handler.on_update()
 

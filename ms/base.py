@@ -1,12 +1,10 @@
 import random
 from dataclasses import dataclass
 from enum import Enum
-from typing import Callable
 from typing import Iterator
 from typing import Optional
 
 import pygame
-from pygame.rect import Rect
 
 from ms.draw import AssetArtist
 from ms.draw import BG_COLOR
@@ -16,37 +14,6 @@ from ms.draw import draw_mine
 T_COORD = tuple[int, int]
 T_GAME_FIELD = list[list["Cell"]]
 DEBUG = False
-T_CALLBACK = Callable[..., None]
-
-
-class Button:
-    def __init__(self, rect: Rect):
-        self.rect = rect
-        self.__pressed = False
-        self.__release_callbacks: list[T_CALLBACK] = []
-        self.__press_callbacks: list[T_CALLBACK] = []
-
-    def add_press_callbacks(self, *cbs: T_CALLBACK) -> None:
-        self.__press_callbacks.extend(cbs)
-
-    def add_release_callbacks(self, *cbs: T_CALLBACK) -> None:
-        self.__release_callbacks.extend(cbs)
-
-    @property
-    def pressed(self) -> bool:
-        return self.__pressed
-
-    @pressed.setter
-    def pressed(self, value: bool) -> None:
-        self.__pressed = value
-
-    def trigger_pressed(self) -> None:
-        for callback in self.__press_callbacks:
-            callback()
-
-    def trigger_released(self) -> None:
-        for callback in self.__release_callbacks:
-            callback()
 
 
 class Mode(Enum):
@@ -124,16 +91,13 @@ class Cell:
             assets.draw_empty(self.rect)
         elif self.is_flagged:
             assets.draw_unopen(self.rect)
-            # TODO replace with image
-            draw_flag(self.rect)
+            draw_flag(self.rect)  # TODO replace with image
         elif not self.is_opened:
             assets.draw_unopen(self.rect)
         elif self.is_opened:
             self.dirty = True
             assets.draw_empty(self.rect)
-
-            # TODO replace with image
-            if self.has_mine:
+            if self.has_mine:  # TODO replace with image
                 draw_mine(self.rect, exploded=self.has_exploded)
             elif self.value != 0:
                 assets.draw_value(self.rect, self.value)
@@ -262,9 +226,9 @@ class Grid:
         assert 0 <= y <= self.__rows - 1
         return self.board[x][y]
 
-    def get_cell_under_cursor(self) -> Optional[Cell]:
+    def get_cell_under(self, pos: T_COORD) -> Optional[Cell]:
         for cell in self:
-            if cell.rect.collidepoint(*pygame.mouse.get_pos()):
+            if cell.rect.collidepoint(*pos):
                 return cell
         else:
             return None

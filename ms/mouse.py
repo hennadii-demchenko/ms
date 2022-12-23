@@ -1,7 +1,7 @@
 import pygame
 
-from ms.base import Button
 from ms.base import Grid
+from ms.draw import Button
 
 
 class MouseHandler:
@@ -35,12 +35,13 @@ class MouseHandler:
                     self.on_r_mouse_down()
 
     def on_l_mouse_up(self) -> None:
+        mouse_pos = pygame.mouse.get_pos()
         for button in self.buttons:
-            if button.rect.collidepoint(*pygame.mouse.get_pos()):
+            if button.rect.collidepoint(*mouse_pos):
                 button.pressed = False
                 button.trigger_released()
 
-        cell = self._grid.get_cell_under_cursor()
+        cell = self._grid.get_cell_under(mouse_pos)
         if cell is None:
             return
 
@@ -51,7 +52,7 @@ class MouseHandler:
         self._grid.on_open(cell)
 
     def on_r_mouse_down(self) -> None:
-        cell = self._grid.get_cell_under_cursor()
+        cell = self._grid.get_cell_under(pygame.mouse.get_pos())
 
         if cell is None or cell.is_opened:
             return
@@ -63,11 +64,12 @@ class MouseHandler:
         self.__on_mouse_hold()
 
     def __on_mouse_hold(self) -> None:
+        mouse_pos = pygame.mouse.get_pos()
         for button in self.buttons:
-            is_over = button.rect.collidepoint(*pygame.mouse.get_pos())
+            is_over = button.rect.collidepoint(*mouse_pos)
             button.pressed = self.left and is_over
 
-        hovered = self._grid.get_cell_under_cursor()
+        hovered = self._grid.get_cell_under(mouse_pos)
 
         for cell in self._grid:
             if not self.left or hovered is None:  # no mouse hold over any cell
