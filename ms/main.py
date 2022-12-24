@@ -158,6 +158,7 @@ class Game:
             self.rect_unflagged, self.__grid.left_unflagged
         )
         self.__artist.draw_score_value(self.rect_elapsed, self.time_displayed)
+        self.__artist.draw_new(self.new_button)
         pygame.draw.rect(self.__screen, BG_COLOR, self.rect_stats)
 
     def __on_key_up(self, key: int) -> None:
@@ -218,8 +219,9 @@ class Game:
             self.left, self.middle, self.right = pygame.mouse.get_pressed()
 
             if event.type == pygame.MOUSEBUTTONUP:
+                self.__handle_new_game_button(event.pos)
+
                 if not self.left and not self.right and self.clicked_left:
-                    print("lup")
                     self.__on_l_mouse_up(event.pos)
 
                 # order matters as we have to keep button state ourselves,
@@ -229,17 +231,22 @@ class Game:
             if event.type == pygame.MOUSEBUTTONDOWN:
                 self.clicked_left, self.clicked_right = self.left, self.right
 
-                if self.left and not self.right:
+                self.__handle_new_game_button(event.pos)
+
+                if not self.is_over and self.left and not self.right:
                     self.__update_mouse_over(event.pos)
-                if not self.left and self.right:
+                if not self.is_over and not self.left and self.right:
                     self.__on_r_mouse_down(event.pos)
 
             if event.type == pygame.MOUSEMOTION:
-                self.__update_mouse_over(event.pos)
+                self.__handle_new_game_button(event.pos)
+                if not self.is_over:
+                    self.__update_mouse_over(event.pos)
 
     def __handle_new_game_button(self, mouse_pos: T_COORD) -> None:
         hovers = self.new_button.rect.collidepoint(mouse_pos)
         self.new_button.pressed = self.left and hovers
+        self.__artist.draw_new(self.new_button)
 
     def __handle_game_timer(self) -> None:
         elapsed = perf_counter() - self.__started_at
@@ -285,18 +292,11 @@ class Game:
             if event.type == pygame.KEYUP:
                 self.__on_key_up(event.key)
 
-        if not self.is_over:
-            self.__handle_mouse()
+        self.__handle_mouse()
 
     def update(self) -> None:
-        self.__artist.draw_new(self.new_button)
-        mouse_pos = pygame.mouse.get_pos()
-        self.__handle_new_game_button(mouse_pos)
-
-        if not self.is_over:
-            if self.__grid.generated:
-                self.__handle_game_timer()
-            # self.__on_mouse_hold(mouse_pos)
+        if not self.is_over and self.__grid.generated:
+            self.__handle_game_timer()
 
         self.is_over = self.__grid.generated and self.__grid.is_finished
 
