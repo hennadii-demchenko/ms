@@ -42,7 +42,11 @@ class Game:
     __DISPLAYS_WIDTH = 110
     __TOP_MARGIN = 100
     __STATS_HEIGHT = 50
-    __MOUSE_EVENTS = [pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP]
+    __MOUSE_EVENTS = [
+        pygame.MOUSEBUTTONDOWN,
+        pygame.MOUSEBUTTONUP,
+        pygame.MOUSEMOTION,
+    ]
     __mode: Mode
 
     def __init__(self, mode: Mode = Mode.EASY) -> None:
@@ -166,24 +170,39 @@ class Game:
         elif key == pygame.K_3:
             self.start_new(Mode.HARD)
 
-    def __on_l_mouse_up(self) -> None:
-        mouse_pos = pygame.mouse.get_pos()
+    def __update_mouse_over(self, pos: T_COORD) -> None:
+        hovered = self.__grid.get_cell_under(pos)
 
-        if self.new_button.rect.collidepoint(*mouse_pos):
+        for cell in self.__grid:
+            if not hovered:  # out of grid bounds
+                cell.is_pressed = False
+            elif self.left and not hovered.is_opened:  # highlight just one
+                cell.is_pressed = cell is hovered and not cell.is_flagged
+            elif self.left and hovered.is_opened and not hovered.is_flagged:
+                cell.is_pressed = cell in self.__grid.eligible_neighbors(
+                    *hovered.pos  # highlight possible
+                )
+            else:
+                cell.is_pressed = False  # release otherwise
+
+    def __on_l_mouse_up(self, pos: T_COORD) -> None:
+        if self.new_button.rect.collidepoint(*pos):
             self.new_button.pressed = False
             self.new_button.trigger_released()
 
-        cell = self.__grid.get_cell_under(mouse_pos)
-        if cell is not None:
+        released = self.__grid.get_cell_under(pos)
+
+        if released is not None:
             if not self.__grid.generated:
-                self.__grid.generate_board(cell.pos)
+                self.__grid.generate_board(released.pos)
                 self.__grid.generated = True
                 self.running = True
                 self.__started_at = perf_counter()
-            self.__grid.on_open(cell)
+            self.__grid.on_open(released)
+            self.__update_mouse_over(pos)
 
-    def __on_r_mouse_down(self) -> None:
-        cell = self.__grid.get_cell_under(pygame.mouse.get_pos())
+    def __on_r_mouse_down(self, pos: T_COORD) -> None:
+        cell = self.__grid.get_cell_under(pos)
 
         if cell is None or cell.is_opened:
             return
@@ -200,7 +219,8 @@ class Game:
 
             if event.type == pygame.MOUSEBUTTONUP:
                 if not self.left and not self.right and self.clicked_left:
-                    self.__on_l_mouse_up()
+                    print("lup")
+                    self.__on_l_mouse_up(event.pos)
 
                 # order matters as we have to keep button state ourselves,
                 # otherwise we don't know which button(s) was previously down
@@ -209,8 +229,13 @@ class Game:
             if event.type == pygame.MOUSEBUTTONDOWN:
                 self.clicked_left, self.clicked_right = self.left, self.right
 
+                if self.left and not self.right:
+                    self.__update_mouse_over(event.pos)
                 if not self.left and self.right:
-                    self.__on_r_mouse_down()
+                    self.__on_r_mouse_down(event.pos)
+
+            if event.type == pygame.MOUSEMOTION:
+                self.__update_mouse_over(event.pos)
 
     def __handle_new_game_button(self, mouse_pos: T_COORD) -> None:
         hovers = self.new_button.rect.collidepoint(mouse_pos)
@@ -248,6 +273,7 @@ class Game:
         pygame.event.set_allowed(pygame.QUIT)
         pygame.event.set_allowed(pygame.MOUSEBUTTONUP)
         pygame.event.set_allowed(pygame.MOUSEBUTTONDOWN)
+        pygame.event.set_allowed(pygame.MOUSEMOTION)
         pygame.event.set_allowed(pygame.KEYUP)
 
     def handle_events(self) -> None:
@@ -270,7 +296,7 @@ class Game:
         if not self.is_over:
             if self.__grid.generated:
                 self.__handle_game_timer()
-            self.__on_mouse_hold(mouse_pos)
+            # self.__on_mouse_hold(mouse_pos)
 
         self.is_over = self.__grid.generated and self.__grid.is_finished
 
