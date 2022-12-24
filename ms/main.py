@@ -36,11 +36,12 @@ class Game:
     """
 
     quit_invoked: bool = False
-    size: int = 40  # TODO configure
+    size: int = 50  # TODO configure
     __FRAME_RATE = 100
     __NEW_BUTTON_SIZE = 75
     __DISPLAYS_WIDTH = 110
     __TOP_MARGIN = 100
+    __STATS_HEIGHT = 50
     __MOUSE_EVENTS = [pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP]
     __mode: Mode
 
@@ -50,6 +51,7 @@ class Game:
         pygame.display.set_caption("imps ms")
 
         self.is_over: bool = False
+        self.running: bool = False
         self.grid_border_width = self.size // 5
         self.left: bool = False
         self.clicked_left: bool = False
@@ -60,7 +62,7 @@ class Game:
         self.time_displayed = 0
 
         self.__clock = Clock()
-        self.artist = AssetArtist(self.size)
+        self.__artist = AssetArtist(self.size)
         self.__grid = Grid((0, 0), mode, scale=self.size)
 
         self.header = pygame.rect.Rect(0, 0, 0, self.__TOP_MARGIN)
@@ -75,8 +77,8 @@ class Game:
         self.grid_container = pygame.rect.Rect(0, self.__TOP_MARGIN, 0, 0)
         self.mode = mode
 
-        self.artist.setup_assets()
-        self.artist.derive_nums_size(self.rect_unflagged)
+        self.__artist.setup_assets()
+        self.__artist.derive_nums_size(self.rect_unflagged)
 
     @property
     def mode(self) -> Mode:
@@ -98,7 +100,12 @@ class Game:
         self.__grid.offset_y = self.grid_container.y + self.grid_border_width
 
         pygame.display.set_mode(
-            (self.grid_container.w, self.grid_container.h + self.__TOP_MARGIN)
+            (
+                self.grid_container.w,
+                self.grid_container.h
+                + self.__TOP_MARGIN
+                + self.__STATS_HEIGHT,
+            )
         )
         self.__screen.fill(BG_COLOR)
 
@@ -109,10 +116,18 @@ class Game:
             self.new_button.rect.h,
         )
         self.rect_elapsed = pygame.rect.Rect(
-            self.header.right - 100 - 2 * self.grid_border_width,
+            self.header.right
+            - self.__DISPLAYS_WIDTH
+            - 2 * self.grid_border_width,
             self.new_button.rect.top,
             self.__DISPLAYS_WIDTH,
             self.new_button.rect.h,
+        )
+        self.rect_stats = pygame.rect.Rect(
+            self.grid_container.left,
+            self.grid_container.bottom,
+            self.header.width,
+            self.__STATS_HEIGHT,
         )
 
     def start_new(self, mode: Optional[Mode] = None) -> None:
@@ -135,10 +150,11 @@ class Game:
             width=self.grid_border_width,
         )
 
-        self.artist.draw_score_value(
+        self.__artist.draw_score_value(
             self.rect_unflagged, self.__grid.left_unflagged
         )
-        self.artist.draw_score_value(self.rect_elapsed, self.time_displayed)
+        self.__artist.draw_score_value(self.rect_elapsed, self.time_displayed)
+        pygame.draw.rect(self.__screen, BG_COLOR, self.rect_stats)
 
     def __on_key_up(self, key: int) -> None:
         if key == pygame.K_F2:
@@ -162,6 +178,7 @@ class Game:
             if not self.__grid.generated:
                 self.__grid.generate_board(cell.pos)
                 self.__grid.generated = True
+                self.running = True
                 self.__started_at = perf_counter()
             self.__grid.on_open(cell)
 
@@ -173,7 +190,7 @@ class Game:
 
         cell.is_flagged = not cell.is_flagged
         self.__grid.num_flagged += int(cell.is_flagged) or -1
-        self.artist.draw_score_value(
+        self.__artist.draw_score_value(
             self.rect_unflagged, self.__grid.left_unflagged
         )
 
@@ -203,7 +220,7 @@ class Game:
         elapsed = perf_counter() - self.__started_at
         if elapsed - self.time_displayed >= 1:
             self.time_displayed = int(elapsed)
-            self.artist.draw_score_value(
+            self.__artist.draw_score_value(
                 self.rect_elapsed, self.time_displayed
             )
 
@@ -246,7 +263,7 @@ class Game:
             self.__handle_mouse()
 
     def update(self) -> None:
-        self.artist.draw_new(self.new_button)
+        self.__artist.draw_new(self.new_button)
         mouse_pos = pygame.mouse.get_pos()
         self.__handle_new_game_button(mouse_pos)
 
@@ -256,11 +273,19 @@ class Game:
             self.__on_mouse_hold(mouse_pos)
 
         self.is_over = self.__grid.generated and self.__grid.is_finished
+
         if self.is_over:
+            if self.running and not any([c.has_exploded for c in self.__grid]):
+                completed_at = perf_counter() - self.__started_at
+                self.__artist.draw_stats_value(
+                    self.rect_stats, f"Completed in {completed_at:.03f}"
+                )
+
             self.__grid.reveal()
+            self.running = False
 
         for cell in self.__grid:
-            cell.draw(self.artist)
+            cell.draw(self.__artist)
 
         self.__clock.tick(self.__FRAME_RATE)
 

@@ -64,6 +64,9 @@ class AssetArtist:
         self.font = pygame.font.Font(
             ROOT_DIR / "fonts/ms.otf", int(size * 0.55)
         )
+        self.stats_font = pygame.font.SysFont(
+            ["Courier", "Calibri", "Arial"], size // 2, bold=True
+        )
         self.debug_font = pygame.font.SysFont(
             "Calibri", int(size * 0.2), bold=True
         )
@@ -165,6 +168,14 @@ class AssetArtist:
         sprite = self.new_pressed if button.pressed else self.new_unpressed
         self.__screen.blit(sprite, button.rect)
         button.dirty = False
+
+    def draw_stats_value(self, rect: Rect, value: str) -> None:
+        text = self.stats_font.render(value, True, "black")
+        centered_position = (
+            rect.left + (rect.w / 2 - text.get_width() / 2),
+            rect.top + (rect.h / 2 - text.get_height() / 2),
+        )
+        self.__screen.blit(text, centered_position)
 
 
 def draw_flag(rect: Rect) -> None:
