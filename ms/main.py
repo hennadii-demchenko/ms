@@ -12,7 +12,6 @@ from ms.base import T_COORD
 from ms.draw import AssetArtist
 from ms.draw import BG_COLOR
 from ms.draw import Button
-from ms.draw import draw_border
 
 
 @contextmanager
@@ -66,7 +65,7 @@ class Game:
         self.time_displayed = 0
 
         self.__clock = Clock()
-        self.__artist = AssetArtist(self.size)
+        self.__artist = AssetArtist(self.size, self.grid_border_width)
         self.__grid = Grid((0, 0), mode, scale=self.size)
 
         self.header = pygame.rect.Rect(0, 0, 0, self.__TOP_MARGIN)
@@ -80,8 +79,6 @@ class Game:
         self.new_button.add_release_callbacks(self.start_new)
         self.grid_container = pygame.rect.Rect(0, self.__TOP_MARGIN, 0, 0)
         self.mode = mode
-
-        self.__artist.setup_assets()
         self.__artist.derive_nums_size(self.rect_unflagged)
 
     @property
@@ -140,25 +137,15 @@ class Game:
         self.is_over = False
         self.time_displayed = 0
         self.__grid.reset_board(mode)
-        self.new_button.dirty = True
-        draw_border(
-            self.grid_container,
-            inverted=True,
-            inside=True,
-            width=self.grid_border_width,
-        )
-        draw_border(
-            self.header,
-            inverted=True,
-            inside=True,
-            width=self.grid_border_width,
-        )
 
+        self.__artist.draw_border(self.header)
         self.__artist.draw_score_value(
             self.rect_unflagged, self.__grid.left_unflagged
         )
         self.__artist.draw_score_value(self.rect_elapsed, self.time_displayed)
+        self.new_button.dirty = True
         self.__artist.draw_new(self.new_button)
+        self.__artist.draw_border(self.grid_container)
         pygame.draw.rect(self.__screen, BG_COLOR, self.rect_stats)
 
     def __on_key_up(self, key: int) -> None:

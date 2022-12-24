@@ -1,7 +1,6 @@
 import math
 from pathlib import Path
 from typing import Callable
-from typing import Optional
 
 import pygame.draw
 from pygame import Color
@@ -59,7 +58,9 @@ class Button:
 
 
 class AssetArtist:
-    def __init__(self, size: int):
+    __NEW_BUTTON_SIZE = 75, 75
+
+    def __init__(self, size: int, border_width: int):
         self.__screen = pygame.display.get_surface()
         self.font = pygame.font.Font(
             ROOT_DIR / "fonts/ms.otf", int(size * 0.55)
@@ -70,36 +71,55 @@ class AssetArtist:
         self.debug_font = pygame.font.SysFont(
             "Calibri", int(size * 0.2), bold=True
         )
+        self.border_width = border_width
         self.nums_margin = 0
         self.nums_width = 0
 
-        self.unopened = pygame.image.load(ROOT_DIR / "sprites/unopened.png")
+        self.unopened = pygame.image.load(
+            ROOT_DIR / "sprites/unopened.png"
+        ).convert()
         self.new_pressed = pygame.image.load(
             ROOT_DIR / "sprites/new_pressed.png"
-        )
+        ).convert()
         self.new_unpressed = pygame.image.load(
             ROOT_DIR / "sprites/new_unpressed.png"
-        )
-        self.empty = pygame.image.load(ROOT_DIR / "sprites/empty.png")
-        self.nums_bg = pygame.image.load(ROOT_DIR / "sprites/nums_bg.png")
+        ).convert()
+        self.empty = pygame.image.load(
+            ROOT_DIR / "sprites/empty.png"
+        ).convert()
+        self.nums_bg = pygame.image.load(
+            ROOT_DIR / "sprites/nums_bg.png"
+        ).convert()
         self.nums_map = {
-            0: pygame.image.load(ROOT_DIR / "sprites/d0.png"),
-            1: pygame.image.load(ROOT_DIR / "sprites/d1.png"),
-            2: pygame.image.load(ROOT_DIR / "sprites/d2.png"),
-            3: pygame.image.load(ROOT_DIR / "sprites/d3.png"),
-            4: pygame.image.load(ROOT_DIR / "sprites/d4.png"),
-            5: pygame.image.load(ROOT_DIR / "sprites/d5.png"),
-            6: pygame.image.load(ROOT_DIR / "sprites/d6.png"),
-            7: pygame.image.load(ROOT_DIR / "sprites/d7.png"),
-            8: pygame.image.load(ROOT_DIR / "sprites/d8.png"),
-            9: pygame.image.load(ROOT_DIR / "sprites/d9.png"),
+            0: pygame.image.load(ROOT_DIR / "sprites/d0.png").convert(),
+            1: pygame.image.load(ROOT_DIR / "sprites/d1.png").convert(),
+            2: pygame.image.load(ROOT_DIR / "sprites/d2.png").convert(),
+            3: pygame.image.load(ROOT_DIR / "sprites/d3.png").convert(),
+            4: pygame.image.load(ROOT_DIR / "sprites/d4.png").convert(),
+            5: pygame.image.load(ROOT_DIR / "sprites/d5.png").convert(),
+            6: pygame.image.load(ROOT_DIR / "sprites/d6.png").convert(),
+            7: pygame.image.load(ROOT_DIR / "sprites/d7.png").convert(),
+            8: pygame.image.load(ROOT_DIR / "sprites/d8.png").convert(),
+            9: pygame.image.load(ROOT_DIR / "sprites/d9.png").convert(),
         }
+
+        self.border_dark = pygame.image.load(
+            ROOT_DIR / "sprites/border_dark.png"
+        ).convert()
+        self.border_light = pygame.image.load(
+            ROOT_DIR / "sprites/border_light.png"
+        ).convert()
+        self.border_corner = pygame.image.load(
+            ROOT_DIR / "sprites/border_corner.png"
+        ).convert()
 
         self.unopened = pygame.transform.scale(self.unopened, (size, size))
         self.empty = pygame.transform.scale(self.empty, (size, size))
-        self.new_pressed = pygame.transform.scale(self.new_pressed, (75, 75))
+        self.new_pressed = pygame.transform.scale(
+            self.new_pressed, self.__NEW_BUTTON_SIZE
+        )
         self.new_unpressed = pygame.transform.scale(
-            self.new_unpressed, (75, 75)
+            self.new_unpressed, self.__NEW_BUTTON_SIZE
         )
 
     def derive_nums_size(self, mines_nums_rect: Rect) -> None:
@@ -116,13 +136,6 @@ class AssetArtist:
 
         for num, image in self.nums_map.items():
             self.nums_map[num] = pygame.transform.scale(image, (width, height))
-
-    def setup_assets(self) -> None:
-        self.unopened = self.unopened.convert()
-        self.empty = self.empty.convert()
-        self.new_pressed = self.new_pressed.convert()
-        self.new_unpressed = self.new_unpressed.convert()
-        self.nums_bg = self.nums_bg.convert()
 
     def draw_empty(self, rect: Rect) -> None:
         self.__screen.blit(self.empty, rect)
@@ -176,6 +189,45 @@ class AssetArtist:
             rect.top + (rect.h / 2 - text.get_height() / 2),
         )
         self.__screen.blit(text, centered_position)
+
+    def draw_border(self, rect: Rect) -> None:
+        border_left = pygame.transform.scale(
+            self.border_dark, (self.border_width, rect.height)
+        )
+        border_top = pygame.transform.scale(
+            self.border_dark, (rect.width, self.border_width)
+        )
+
+        top_right_corner = pygame.transform.scale(
+            self.border_corner, (self.border_width, self.border_width)
+        )
+        bot_left_corner = pygame.transform.rotate(
+            pygame.transform.scale(
+                self.border_corner, (self.border_width, self.border_width)
+            ),
+            math.pi,
+        )
+
+        border_right = pygame.transform.scale(
+            self.border_light, (self.border_width, rect.height)
+        )
+        border_bot = pygame.transform.scale(
+            self.border_light, (rect.width, self.border_width)
+        )
+        self.__screen.blit(border_top, rect.topleft)
+        self.__screen.blit(
+            border_right, (rect.right - self.border_width, rect.top)
+        )
+        self.__screen.blit(
+            top_right_corner, (rect.right - self.border_width, rect.top)
+        )
+        self.__screen.blit(border_left, rect.topleft)
+        self.__screen.blit(
+            border_bot, (rect.left, rect.bottom - self.border_width)
+        )
+        self.__screen.blit(
+            bot_left_corner, (rect.left, rect.bottom - self.border_width)
+        )
 
 
 def draw_flag(rect: Rect) -> None:
@@ -320,66 +372,3 @@ def draw_mine(rect: Rect, exploded: bool = False) -> None:
             rays_size,
         ),
     )
-
-
-def draw_border(
-    rect: Rect,
-    inverted: bool = False,
-    inside: bool = True,
-    width: Optional[int] = None,
-) -> None:
-    screen = pygame.display.get_surface()
-    thickness = width or max(rect.height, rect.width) // 10
-    direction = int(inside) or -1
-
-    if inverted:
-        highlight, shadow = SHADOW_COLOR, HIGHLIGHT_COLOR
-    else:
-        highlight, shadow = HIGHLIGHT_COLOR, SHADOW_COLOR
-
-    pygame.draw.polygon(
-        screen,
-        highlight,
-        [
-            rect.bottomleft,
-            rect.topleft,
-            rect.topright,
-            (
-                rect.right - thickness * direction,
-                rect.top + thickness * direction,
-            ),
-            (
-                rect.left + thickness * direction,
-                rect.top + thickness * direction,
-            ),
-            (
-                rect.left + thickness * direction,
-                rect.bottom - thickness * direction,
-            ),
-            rect.bottomleft,
-        ],
-    )
-
-    pygame.draw.polygon(
-        screen,
-        shadow,
-        [
-            rect.bottomleft,
-            rect.bottomright,
-            rect.topright,
-            (
-                rect.right - thickness * direction,
-                rect.top + thickness * direction,
-            ),
-            (
-                rect.right - thickness * direction,
-                rect.bottom - thickness * direction,
-            ),
-            (
-                rect.left + thickness * direction,
-                rect.bottom - thickness * direction,
-            ),
-            rect.bottomleft,
-        ],
-    )
-    pygame.draw.rect(screen, shadow, rect, width=1)
