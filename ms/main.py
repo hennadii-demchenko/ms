@@ -1,4 +1,5 @@
 from contextlib import contextmanager
+from time import perf_counter
 from typing import Iterator
 from typing import Optional
 
@@ -55,7 +56,8 @@ class Game:
         self.clicked_right: bool = False
         self.middle: bool = False
         self.right: bool = False
-        self.elapsed = 0
+        self.__started_at = perf_counter()
+        self.time_displayed = 0
 
         self.__clock = Clock()
         self.artist = AssetArtist(self.size)
@@ -117,6 +119,7 @@ class Game:
         if mode is not None:
             self.mode = mode
         self.is_over = False
+        self.time_displayed = 0
         self.__grid.reset_board(mode)
         self.new_button.dirty = True
         draw_border(
@@ -135,6 +138,7 @@ class Game:
         self.artist.draw_score_value(
             self.rect_unflagged, self.__grid.left_unflagged
         )
+        self.artist.draw_score_value(self.rect_elapsed, self.time_displayed)
 
     def __on_key_up(self, key: int) -> None:
         if key == pygame.K_F2:
@@ -158,6 +162,7 @@ class Game:
             if not self.__grid.generated:
                 self.__grid.generate_board(cell.pos)
                 self.__grid.generated = True
+                self.__started_at = perf_counter()
             self.__grid.on_open(cell)
 
     def __on_r_mouse_down(self) -> None:
@@ -193,6 +198,14 @@ class Game:
     def __handle_new_game_button(self, mouse_pos: T_COORD) -> None:
         hovers = self.new_button.rect.collidepoint(mouse_pos)
         self.new_button.pressed = self.left and hovers
+
+    def __handle_game_timer(self) -> None:
+        elapsed = perf_counter() - self.__started_at
+        if elapsed - self.time_displayed >= 1:
+            self.time_displayed = int(elapsed)
+            self.artist.draw_score_value(
+                self.rect_elapsed, self.time_displayed
+            )
 
     def __on_mouse_hold(self, mouse_pos: T_COORD) -> None:
         hovered = self.__grid.get_cell_under(mouse_pos)
@@ -238,6 +251,8 @@ class Game:
         self.__handle_new_game_button(mouse_pos)
 
         if not self.is_over:
+            if self.__grid.generated:
+                self.__handle_game_timer()
             self.__on_mouse_hold(mouse_pos)
 
         self.is_over = self.__grid.generated and self.__grid.is_finished
