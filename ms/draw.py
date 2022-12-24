@@ -133,7 +133,7 @@ class AssetArtist:
 
         text = self.font.render(str(value), True, NUM_COLORS[value])
         centered_position = (
-            rect.left + (rect.w / 2 - text.get_width() / 2),
+            rect.left + (rect.w / 2 - text.get_width() / 2.33),
             rect.top + (rect.h / 2 - text.get_height() / 2),
         )
         self.__screen.blit(text, centered_position)
