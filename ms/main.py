@@ -186,8 +186,9 @@ class Game:
                 self.__grid.generated = True
                 self.running = True
                 self.__started_at = perf_counter()
-            self.__grid.on_open(released)
-            self.__update_mouse_over(pos)
+            if not self.is_over:
+                self.__grid.on_open(released)
+                self.__update_mouse_over(pos)
 
     def __on_r_mouse_down(self, pos: T_COORD) -> None:
         cell = self.__grid.get_cell_under(pos)
@@ -208,12 +209,7 @@ class Game:
             if event.type == pygame.MOUSEBUTTONUP:
                 self.__handle_new_game_button(event.pos)
 
-                if (
-                    not self.is_over
-                    and not self.left
-                    and not self.right
-                    and self.clicked_left
-                ):
+                if not self.left and not self.right and self.clicked_left:
                     self.__on_l_mouse_up(event.pos)
 
                 # order matters as we have to keep button state ourselves,
