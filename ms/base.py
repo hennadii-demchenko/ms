@@ -9,7 +9,6 @@ import pygame
 
 from ms.draw import AssetArtist
 from ms.draw import BG_COLOR
-from ms.draw import draw_flag
 from ms.draw import draw_mine
 
 T_COORD = tuple[int, int]
@@ -91,17 +90,17 @@ class Cell:
         if self.is_pressed:
             assets.draw_empty(self.rect)
         elif self.is_flagged:
-            assets.draw_unopen(self.rect)
-            draw_flag(self.rect)  # TODO replace with image
+            assets.draw_flag(self.rect)
         elif not self.is_opened:
             assets.draw_unopen(self.rect)
         elif self.is_opened:
             self.dirty = True
-            assets.draw_empty(self.rect)
-            if self.has_mine:  # TODO replace with image
-                draw_mine(self.rect, exploded=self.has_exploded)
-            elif self.value != 0:
-                assets.draw_cell_value(self.rect, self.value)
+            if self.has_mine:
+                assets.draw_mine(self.rect, exploded=self.has_exploded)
+            else:
+                assets.draw_empty(self.rect)
+                if self.value != 0:
+                    assets.draw_cell_value(self.rect, self.value)
 
     def __add__(self, other: int) -> "Cell":
         assert isinstance(other, int)

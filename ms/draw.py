@@ -75,6 +75,11 @@ class AssetArtist:
         self.nums_margin = 0
         self.nums_width = 0
 
+        self.flag = pygame.image.load(ROOT_DIR / "sprites/flag.png")
+        self.mine = pygame.image.load(ROOT_DIR / "sprites/mine.png")
+        self.exploded_mine = pygame.image.load(
+            ROOT_DIR / "sprites/mine_exploded.png"
+        )
         self.unopened = pygame.image.load(
             ROOT_DIR / "sprites/unopened.png"
         ).convert()
@@ -113,8 +118,17 @@ class AssetArtist:
             ROOT_DIR / "sprites/border_corner.png"
         ).convert()
 
-        self.unopened = pygame.transform.scale(self.unopened, (size, size))
-        self.empty = pygame.transform.scale(self.empty, (size, size))
+        square_size = size, size
+        self.flag = pygame.transform.scale(
+            self.flag,
+            (size - 1.5 * self.border_width, size - 1.5 * self.border_width),
+        )
+        self.mine = pygame.transform.scale(self.mine, square_size)
+        self.exploded_mine = pygame.transform.scale(
+            self.exploded_mine, square_size
+        )
+        self.unopened = pygame.transform.scale(self.unopened, square_size)
+        self.empty = pygame.transform.scale(self.empty, square_size)
         self.new_pressed = pygame.transform.scale(
             self.new_pressed, self.__NEW_BUTTON_SIZE
         )
@@ -191,91 +205,43 @@ class AssetArtist:
         self.__screen.blit(text, centered_position)
 
     def draw_border(self, rect: Rect) -> None:
-        border_left = pygame.transform.scale(
-            self.border_dark, (self.border_width, rect.height)
-        )
-        border_top = pygame.transform.scale(
-            self.border_dark, (rect.width, self.border_width)
-        )
+        vertical = self.border_width, rect.height
+        horizontal = rect.width, self.border_width
+        corner = self.border_width, self.border_width
 
-        top_right_corner = pygame.transform.scale(
-            self.border_corner, (self.border_width, self.border_width)
-        )
-        bot_left_corner = pygame.transform.rotate(
-            pygame.transform.scale(
-                self.border_corner, (self.border_width, self.border_width)
-            ),
-            math.pi,
-        )
+        border_left = pygame.transform.scale(self.border_dark, vertical)
+        top_right_corner = pygame.transform.scale(self.border_corner, corner)
+        border_top = pygame.transform.scale(self.border_dark, horizontal)
+        border_right = pygame.transform.scale(self.border_light, vertical)
+        border_bot = pygame.transform.scale(self.border_light, horizontal)
+        bot_left_corner = pygame.transform.scale(self.border_corner, corner)
+        bot_left_corner = pygame.transform.rotate(bot_left_corner, math.pi)
 
-        border_right = pygame.transform.scale(
-            self.border_light, (self.border_width, rect.height)
-        )
-        border_bot = pygame.transform.scale(
-            self.border_light, (rect.width, self.border_width)
-        )
-        self.__screen.blit(border_top, rect.topleft)
-        self.__screen.blit(
-            border_right, (rect.right - self.border_width, rect.top)
-        )
-        self.__screen.blit(
-            top_right_corner, (rect.right - self.border_width, rect.top)
-        )
+        border_right_rect = border_right.get_rect()
+        top_right_corner_rect = top_right_corner.get_rect()
+        border_right_rect.topright = rect.topright
+        top_right_corner_rect.topright = rect.topright
+        border_bot_rect = border_bot.get_rect()
+        bot_left_corner_rect = bot_left_corner.get_rect()
+        border_bot_rect.bottomleft = rect.bottomleft
+        bot_left_corner_rect.bottomleft = rect.bottomleft
+
         self.__screen.blit(border_left, rect.topleft)
-        self.__screen.blit(
-            border_bot, (rect.left, rect.bottom - self.border_width)
-        )
-        self.__screen.blit(
-            bot_left_corner, (rect.left, rect.bottom - self.border_width)
-        )
+        self.__screen.blit(border_top, rect.topleft)
+        self.__screen.blit(border_right, border_right_rect)
+        self.__screen.blit(top_right_corner, top_right_corner_rect)
+        self.__screen.blit(border_bot, border_bot_rect)
+        self.__screen.blit(bot_left_corner, bot_left_corner_rect)
 
+    def draw_flag(self, rect: Rect) -> None:
+        self.draw_unopen(rect)
+        flag_rect = self.flag.get_rect()
+        flag_rect.center = rect.center
+        self.__screen.blit(self.flag, flag_rect)
 
-def draw_flag(rect: Rect) -> None:
-    screen = pygame.display.get_surface()
-    offset = max(rect.height, rect.width) // 4
-    pygame.draw.polygon(
-        screen,
-        "black",
-        [
-            (rect.left + offset * 1.2, rect.bottom - offset * 0.6),
-            (rect.centerx, rect.centery + offset),
-            (rect.right - offset * 1.2, rect.bottom - offset * 0.6),
-        ],
-    )
-    pygame.draw.line(
-        screen,
-        "black",
-        (rect.centerx, rect.centery + offset * 1.25),
-        rect.center,
-        offset // 3,
-    )
-    pygame.draw.line(
-        screen,
-        "red",
-        (rect.centerx, rect.centery + offset * 0.3),
-        (rect.centerx, rect.top + offset * 0.75),
-        offset // 3,
-    )
-
-    pygame.draw.polygon(
-        screen,
-        "red",
-        [
-            (rect.centerx, rect.centery + offset * 0.3),
-            (rect.centerx, rect.top + offset * 0.75),
-            (rect.centerx - rect.width // 3.25, rect.centery - offset // 2),
-        ],
-        offset // 6,
-    )
-    pygame.draw.polygon(
-        screen,
-        "red",
-        [
-            (rect.centerx, rect.centery + offset * 0.3),
-            (rect.centerx, rect.top + offset * 0.75),
-            (rect.centerx - rect.width // 3.25, rect.centery - offset // 2),
-        ],
-    )
+    def draw_mine(self, rect: Rect, exploded: bool = False) -> None:
+        sprite = self.exploded_mine if exploded else self.mine
+        self.__screen.blit(sprite, rect)
 
 
 def draw_mine(rect: Rect, exploded: bool = False) -> None:
