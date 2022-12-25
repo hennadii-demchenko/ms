@@ -249,12 +249,13 @@ class Grid:
         self.board = self.__generate_cells()
 
     def on_open(self, cell: Cell) -> None:
-        # FIXME: get rid of recursion
+        # FIXME: replace recursion with dfs traversal
         if cell.is_flagged:
             return
 
         if cell.has_mine:
             cell.has_exploded = True
+            return
 
         if cell.is_opened:
             if self.flags_around(*cell.pos) >= cell.value:
