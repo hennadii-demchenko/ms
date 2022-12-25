@@ -1,4 +1,3 @@
-import math
 from pathlib import Path
 from typing import Callable
 
@@ -135,6 +134,9 @@ class AssetArtist:
         self.new_unpressed = pygame.transform.scale(
             self.new_unpressed, self.__NEW_BUTTON_SIZE
         )
+        self.border_corner = pygame.transform.scale(
+            self.border_corner, (self.border_width, self.border_width)
+        )
 
     def derive_nums_size(self, mines_nums_rect: Rect) -> None:
         self.nums_bg = pygame.transform.scale(
@@ -207,31 +209,27 @@ class AssetArtist:
     def draw_border(self, rect: Rect) -> None:
         vertical = self.border_width, rect.height
         horizontal = rect.width, self.border_width
-        corner = self.border_width, self.border_width
 
         border_left = pygame.transform.scale(self.border_dark, vertical)
-        top_right_corner = pygame.transform.scale(self.border_corner, corner)
         border_top = pygame.transform.scale(self.border_dark, horizontal)
         border_right = pygame.transform.scale(self.border_light, vertical)
         border_bot = pygame.transform.scale(self.border_light, horizontal)
-        bot_left_corner = pygame.transform.scale(self.border_corner, corner)
-        bot_left_corner = pygame.transform.rotate(bot_left_corner, math.pi)
 
         border_right_rect = border_right.get_rect()
-        top_right_corner_rect = top_right_corner.get_rect()
+        border_bot_rect = border_bot.get_rect()
+        top_right_corner_rect = self.border_corner.get_rect()
+        bot_left_corner_rect = self.border_corner.get_rect()
         border_right_rect.topright = rect.topright
         top_right_corner_rect.topright = rect.topright
-        border_bot_rect = border_bot.get_rect()
-        bot_left_corner_rect = bot_left_corner.get_rect()
         border_bot_rect.bottomleft = rect.bottomleft
         bot_left_corner_rect.bottomleft = rect.bottomleft
 
         self.__screen.blit(border_left, rect.topleft)
         self.__screen.blit(border_top, rect.topleft)
         self.__screen.blit(border_right, border_right_rect)
-        self.__screen.blit(top_right_corner, top_right_corner_rect)
+        self.__screen.blit(self.border_corner, top_right_corner_rect)
         self.__screen.blit(border_bot, border_bot_rect)
-        self.__screen.blit(bot_left_corner, bot_left_corner_rect)
+        self.__screen.blit(self.border_corner, bot_left_corner_rect)
 
     def draw_flag(self, rect: Rect) -> None:
         self.draw_unopen(rect)
@@ -242,99 +240,3 @@ class AssetArtist:
     def draw_mine(self, rect: Rect, exploded: bool = False) -> None:
         sprite = self.exploded_mine if exploded else self.mine
         self.__screen.blit(sprite, rect)
-
-
-def draw_mine(rect: Rect, exploded: bool = False) -> None:
-    screen = pygame.display.get_surface()
-    if exploded:
-        pygame.draw.rect(screen, "red", rect)
-
-    pygame.draw.rect(screen, SHADOW_COLOR, rect, width=1)
-    radius = max(rect.height, rect.width) / 3.5
-    rays_size = int(radius // 4)
-    circle = pygame.draw.circle(screen, "black", rect.center, radius)
-    cx, cy = circle.center
-
-    # gloss
-    reflect_center = (
-        circle.center[0] - radius / 6,
-        circle.center[1] - radius / 6,
-    )
-
-    pygame.draw.circle(screen, SHADOW_COLOR, reflect_center, radius // 2)
-    pygame.draw.circle(screen, BG_COLOR, reflect_center, radius // 3)
-    pygame.draw.circle(screen, HIGHLIGHT_COLOR, reflect_center, radius // 8)
-
-    # radial rays
-    pygame.draw.line(  # top
-        screen,
-        "black",
-        circle.midtop,
-        (circle.centerx, circle.top - rays_size),
-        rays_size,
-    )
-    pygame.draw.line(  # bottom
-        screen,
-        "black",
-        circle.midbottom,
-        (circle.centerx, circle.bottom + rays_size),
-        rays_size,
-    )
-    pygame.draw.line(  # right
-        screen,
-        "black",
-        circle.midright,
-        (circle.right + rays_size, circle.centery),
-        rays_size,
-    )
-    pygame.draw.line(  # left
-        screen,
-        "black",
-        circle.midleft,
-        (circle.left - rays_size, circle.centery),
-        rays_size,
-    )
-
-    pygame.draw.rect(  # top right (45)
-        screen,
-        "black",
-        (
-            cx - rays_size // 2 + radius * math.cos(-(math.pi / 4)),
-            cy - rays_size // 2 + radius * math.sin(-(math.pi / 4)),
-            rays_size,
-            rays_size,
-        ),
-    )
-
-    pygame.draw.rect(  # top left (315)
-        screen,
-        "black",
-        (
-            cx - rays_size // 2 + radius * math.cos(-(3 * math.pi / 4)),
-            cy - rays_size // 2 + radius * math.sin(-(3 * math.pi / 4)),
-            rays_size,
-            rays_size,
-        ),
-    )
-
-    pygame.draw.rect(  # bottom right (135)
-        screen,
-        "black",
-        (
-            cx - rays_size // 2 + radius * math.cos(math.pi / 4),
-            cy - rays_size // 2 + radius * math.sin(math.pi / 4),
-            rays_size,
-            rays_size,
-        ),
-    )
-
-    pygame.draw.rect(  # bottom left (225)
-        screen,
-        "black",
-        (
-            cx - rays_size // 2 + radius * math.cos(3 * math.pi / 4),
-            cy - rays_size // 2 + radius * math.sin(3 * math.pi / 4),
-            rays_size,
-            rays_size,
-        ),
-    )

@@ -9,7 +9,6 @@ import pygame
 
 from ms.draw import AssetArtist
 from ms.draw import BG_COLOR
-from ms.draw import draw_mine
 
 T_COORD = tuple[int, int]
 T_GAME_FIELD = list[list["Cell"]]

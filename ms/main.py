@@ -208,7 +208,12 @@ class Game:
             if event.type == pygame.MOUSEBUTTONUP:
                 self.__handle_new_game_button(event.pos)
 
-                if not self.left and not self.right and self.clicked_left:
+                if (
+                    not self.is_over
+                    and not self.left
+                    and not self.right
+                    and self.clicked_left
+                ):
                     self.__on_l_mouse_up(event.pos)
 
                 # order matters as we have to keep button state ourselves,
