@@ -35,7 +35,7 @@ class Game:
     """
 
     quit_invoked: bool = False
-    size: int = 50  # TODO configure
+    size: int = 40  # TODO configure
     __FRAME_RATE = 100
     __NEW_BUTTON_SIZE = 75
     __DISPLAYS_WIDTH = 110

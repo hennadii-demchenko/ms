@@ -118,10 +118,7 @@ class AssetArtist:
         ).convert()
 
         square_size = size, size
-        self.flag = pygame.transform.scale(
-            self.flag,
-            (size - 1.5 * self.border_width, size - 1.5 * self.border_width),
-        )
+        self.flag = pygame.transform.scale(self.flag, square_size)
         self.mine = pygame.transform.scale(self.mine, square_size)
         self.exploded_mine = pygame.transform.scale(
             self.exploded_mine, square_size
@@ -232,10 +229,7 @@ class AssetArtist:
         self.__screen.blit(self.border_corner, bot_left_corner_rect)
 
     def draw_flag(self, rect: Rect) -> None:
-        self.draw_unopen(rect)
-        flag_rect = self.flag.get_rect()
-        flag_rect.center = rect.center
-        self.__screen.blit(self.flag, flag_rect)
+        self.__screen.blit(self.flag, rect)
 
     def draw_mine(self, rect: Rect, exploded: bool = False) -> None:
         sprite = self.exploded_mine if exploded else self.mine
