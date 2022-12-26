@@ -166,10 +166,9 @@ class Game:
                 cell.is_pressed = False
             elif self.left and not hovered.is_opened:  # highlight just one
                 cell.is_pressed = cell is hovered and not cell.is_flagged
-            elif self.left and hovered.is_opened and not hovered.is_flagged:
-                cell.is_pressed = cell in self.__grid.eligible_neighbors(
-                    *hovered.pos  # highlight possible
-                )
+            elif self.left and hovered.is_opened:
+                eligible = self.__grid.eligible_neighbors(*hovered.pos)
+                cell.is_pressed = cell in eligible  # highlight possible
             else:
                 cell.is_pressed = False  # release otherwise
 
@@ -243,24 +242,6 @@ class Game:
             self.__artist.draw_score_value(
                 self.rect_elapsed, self.time_displayed
             )
-
-    def __on_mouse_hold(self, mouse_pos: T_COORD) -> None:
-        hovered = self.__grid.get_cell_under(mouse_pos)
-
-        for cell in self.__grid:
-            # no mouse hold over any cell
-            if not self.left or hovered is None:
-                cell.is_pressed = False
-            # hold over unopened
-            elif self.left and not hovered.is_opened:
-                cell.is_pressed = cell is hovered and not cell.is_flagged
-            # hold to reveal possible
-            elif self.left and hovered.is_opened and not hovered.is_flagged:
-                cell.is_pressed = cell in self.__grid.eligible_neighbors(
-                    *hovered.pos
-                )
-            else:
-                cell.is_pressed = False
 
     @staticmethod
     def setup_events() -> None:

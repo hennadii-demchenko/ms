@@ -1,7 +1,9 @@
 import random
 from dataclasses import dataclass
+from dataclasses import field
 from enum import Enum
 from time import perf_counter
+from typing import Any
 from typing import Iterator
 from typing import Optional
 
@@ -38,7 +40,7 @@ class Mode(Enum):
         return self.value[3]
 
 
-@dataclass(slots=True)
+@dataclass(slots=True, eq=False)
 class Cell:
     offset: T_COORD
     x: int
@@ -46,12 +48,20 @@ class Cell:
     size: int
     value: int = 0
     _rect: pygame.Rect = None
+    neighbors: list["Cell"] = field(default_factory=lambda: list())
     is_pressed: bool = False
     has_exploded: bool = False
     is_opened: bool = False
     has_mine: bool = False
     is_flagged: bool = False
     dirty: bool = False
+
+    def __eq__(self, other: Any) -> bool:
+        return (
+            isinstance(other, type(self))
+            and other.x == self.x
+            and other.y == self.y
+        )
 
     @property
     def rect(self) -> pygame.Rect:
@@ -189,21 +199,18 @@ class Grid:
     def unopened(self) -> Iterator[Cell]:
         yield from (cell for cell in self if not cell.is_opened)
 
-    def neighbors(self, x: int, y: int) -> Iterator[Cell]:
-        yield from (self.at(*pos) for pos in self.neighbor_coordinates(x, y))
-
     def unopened_neighbors(self, x: int, y: int) -> Iterator[Cell]:
-        yield from (n for n in self.neighbors(x, y) if not n.is_opened)
+        yield from (n for n in self.at(x, y).neighbors if not n.is_opened)
 
     def eligible_neighbors(self, x: int, y: int) -> Iterator[Cell]:
         yield from (
             n
-            for n in self.neighbors(x, y)
+            for n in self.at(x, y).neighbors
             if not n.is_opened and not n.is_flagged
         )
 
     def flagged_neighbors(self, x: int, y: int) -> Iterator[Cell]:
-        yield from (n for n in self.neighbors(x, y) if n.is_flagged)
+        yield from (n for n in self.at(x, y).neighbors if n.is_flagged)
 
     def flags_around(self, x: int, y: int) -> int:
         return len(list(self.flagged_neighbors(x, y)))
@@ -228,9 +235,16 @@ class Grid:
         return self.board[x][y]
 
     def get_cell_under(self, pos: T_COORD) -> Optional[Cell]:
-        for cell in self:
-            if cell.rect.collidepoint(*pos):
-                return cell
+        x, y = pos
+        x_min, y_min = self.at(0, 0).rect.topleft
+        x_max, y_max = self.at(
+            self.__cols - 1, self.__rows - 1
+        ).rect.bottomright
+
+        if x_min < x < x_max and y_min < y < y_max:
+            return self.at(
+                (x - x_min) // self.__scale, (y - y_min) // self.__scale
+            )
         else:
             return None
 
@@ -274,12 +288,17 @@ class Grid:
         self.mines.clear()
         self.mines = self.__sample_mine_positions(starts_at)
 
+        for cell in self:
+            cell.neighbors = [
+                self.at(*pos) for pos in self.neighbor_coordinates(*cell.pos)
+            ]
+
         for x, y in self.mines:
             cell = self.at(x, y)
             cell.has_mine = True
 
         for cell in self:
-            for neighbor in self.neighbors(*cell.pos):
+            for neighbor in self.at(*cell.pos).neighbors:
                 if neighbor.has_mine:
                     cell += 1
 
