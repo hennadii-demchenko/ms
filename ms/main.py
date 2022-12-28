@@ -280,7 +280,7 @@ class Game:
             self.running = False
 
         for cell in self.__grid:
-            cell.draw(self.__artist)
+            cell.draw(self.__artist, self.is_over)
 
         self.__clock.tick(self.__FRAME_RATE)
 

@@ -86,7 +86,7 @@ class Cell:
             self.y * self.size + self.offset[1],
         )
 
-    def draw(self, assets: AssetArtist) -> None:
+    def draw(self, assets: AssetArtist, is_game_over: bool) -> None:
         if self.dirty:
             return
 
@@ -99,7 +99,10 @@ class Cell:
         if self.is_pressed:
             assets.draw_empty(self.rect)
         elif self.is_flagged:
-            assets.draw_flag(self.rect)
+            if not self.has_mine and is_game_over:
+                assets.draw_false_mine(self.rect)
+            else:
+                assets.draw_flag(self.rect)
         elif not self.is_opened:
             assets.draw_unopen(self.rect)
         elif self.is_opened:

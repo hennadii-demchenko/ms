@@ -74,11 +74,14 @@ class AssetArtist:
         self.nums_margin = 0
         self.nums_width = 0
 
-        self.flag = pygame.image.load(ROOT_DIR / "sprites/flag.png")
-        self.mine = pygame.image.load(ROOT_DIR / "sprites/mine.png")
+        self.flag = pygame.image.load(ROOT_DIR / "sprites/flag.png").convert()
+        self.mine = pygame.image.load(ROOT_DIR / "sprites/mine.png").convert()
+        self.false_mine = pygame.image.load(
+            ROOT_DIR / "sprites/false_mine.png"
+        ).convert()
         self.exploded_mine = pygame.image.load(
             ROOT_DIR / "sprites/mine_exploded.png"
-        )
+        ).convert()
         self.unopened = pygame.image.load(
             ROOT_DIR / "sprites/unopened.png"
         ).convert()
@@ -95,16 +98,8 @@ class AssetArtist:
             ROOT_DIR / "sprites/nums_bg.png"
         ).convert()
         self.nums_map = {
-            0: pygame.image.load(ROOT_DIR / "sprites/d0.png").convert(),
-            1: pygame.image.load(ROOT_DIR / "sprites/d1.png").convert(),
-            2: pygame.image.load(ROOT_DIR / "sprites/d2.png").convert(),
-            3: pygame.image.load(ROOT_DIR / "sprites/d3.png").convert(),
-            4: pygame.image.load(ROOT_DIR / "sprites/d4.png").convert(),
-            5: pygame.image.load(ROOT_DIR / "sprites/d5.png").convert(),
-            6: pygame.image.load(ROOT_DIR / "sprites/d6.png").convert(),
-            7: pygame.image.load(ROOT_DIR / "sprites/d7.png").convert(),
-            8: pygame.image.load(ROOT_DIR / "sprites/d8.png").convert(),
-            9: pygame.image.load(ROOT_DIR / "sprites/d9.png").convert(),
+            x: pygame.image.load(ROOT_DIR / f"sprites/d{x}.png").convert()
+            for x in range(10)
         }
 
         self.border_dark = pygame.image.load(
@@ -120,6 +115,7 @@ class AssetArtist:
         square_size = size, size
         self.flag = pygame.transform.scale(self.flag, square_size)
         self.mine = pygame.transform.scale(self.mine, square_size)
+        self.false_mine = pygame.transform.scale(self.false_mine, square_size)
         self.exploded_mine = pygame.transform.scale(
             self.exploded_mine, square_size
         )
@@ -234,3 +230,6 @@ class AssetArtist:
     def draw_mine(self, rect: Rect, exploded: bool = False) -> None:
         sprite = self.exploded_mine if exploded else self.mine
         self.__screen.blit(sprite, rect)
+
+    def draw_false_mine(self, rect: Rect) -> None:
+        self.__screen.blit(self.false_mine, rect)
