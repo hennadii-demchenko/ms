@@ -19,8 +19,9 @@ def pygame_runner() -> Iterator[None]:
     pygame.init()
     pygame.mixer.quit()
     pygame.display.init()
-    pygame.font.init()
     yield
+    pygame.font.quit()
+    pygame.display.quit()
     pygame.quit()
 
 
@@ -50,7 +51,7 @@ class Game:
 
     def __init__(self, mode: Mode = Mode.EASY) -> None:
         # TODO persistent settings
-        self.__screen = pygame.display.set_mode((0, 0))
+        self.__screen = pygame.display.set_mode(mode.size)
         pygame.display.set_caption("imps ms")
 
         self.is_over: bool = False
