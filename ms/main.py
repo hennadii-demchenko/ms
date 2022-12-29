@@ -39,9 +39,9 @@ class Game:
     size: int = 40  # TODO configure
     __FRAME_RATE = 100
     __NEW_BUTTON_SIZE = 75
-    __DISPLAYS_WIDTH = 110
+    __DISPLAYS_WIDTH = 110  # FIXME bad name
     __TOP_MARGIN = 100
-    __STATS_HEIGHT = 50
+    __STATS_H = 50
     __MOUSE_EVENTS = [
         pygame.MOUSEBUTTONDOWN,
         pygame.MOUSEBUTTONUP,
@@ -56,31 +56,84 @@ class Game:
 
         self.is_over: bool = False
         self.running: bool = False
-        self.grid_border_width = self.size // 5
+
+        self.border = self.size // 5
+        self.margin = self.border
+        self.__artist = AssetArtist(self.size, self.border)
+
         self.left: bool = False
         self.clicked_left: bool = False
         self.clicked_right: bool = False
         self.middle: bool = False
         self.right: bool = False
+
         self.__started_at = perf_counter()
         self.time_displayed = 0
 
-        self.__clock = Clock()
-        self.__artist = AssetArtist(self.size, self.grid_border_width)
-        self.__grid = Grid((0, 0), mode, scale=self.size)
+        self.mode = mode
 
-        self.header = pygame.rect.Rect(0, 0, 0, self.__TOP_MARGIN)
+        self.__clock = Clock()
+
+    def __configure_layout(self, mode: Mode) -> None:
+        self.width = self.size * mode.cols + 2 * self.border
+        self.header_h = self.__TOP_MARGIN
+        self.grid_w = self.size * mode.cols
+        self.grid_h = self.size * mode.rows
+        self.grid_container_w = self.grid_w + 2 * self.border
+        self.grid_container_h = self.grid_h + 2 * self.border
+        self.height = self.header_h + self.margin + self.grid_container_h
+
+        self.header = pygame.Surface((self.width, self.header_h))
+        self.header_rect = self.header.get_rect(topleft=(0, 0))
+
+        self.grid_container = pygame.Surface(
+            (self.grid_container_w, self.grid_container_h)
+        )
+        self.grid_container_rect = self.grid_container.get_rect(
+            topleft=(0, self.header_rect.bottom + self.margin)
+        )
+
+        self.grid_surf = pygame.Surface((self.grid_w, self.grid_h))
+        self.grid_rect = self.grid_surf.get_rect(
+            topleft=(
+                self.grid_container_rect.left + self.border,
+                self.grid_container_rect.top + self.border,
+            )
+        )
+
         self.new_button = Button(
             pygame.Rect(
-                *self.header.center,
+                self.header_rect.centerx - 0.5 * self.__NEW_BUTTON_SIZE,
+                self.header_rect.centery - 0.5 * self.__NEW_BUTTON_SIZE,
                 self.__NEW_BUTTON_SIZE,
                 self.__NEW_BUTTON_SIZE,
             )
         )
         self.new_button.add_release_callbacks(self.start_new)
-        self.grid_container = pygame.rect.Rect(0, self.__TOP_MARGIN, 0, 0)
-        self.mode = mode
+
+        self.rect_unflagged = pygame.rect.Rect(
+            self.header_rect.left + 2 * self.border,
+            self.new_button.rect.top,
+            self.__DISPLAYS_WIDTH,
+            self.new_button.rect.h,
+        )
         self.__artist.derive_nums_size(self.rect_unflagged)
+
+        self.rect_elapsed = pygame.rect.Rect(
+            self.header_rect.right - self.__DISPLAYS_WIDTH - 2 * self.border,
+            self.new_button.rect.top,
+            self.__DISPLAYS_WIDTH,
+            self.new_button.rect.h,
+        )
+
+        self.rect_stats = pygame.rect.Rect(
+            *self.grid_container_rect.bottomleft,
+            self.header_rect.width,
+            self.__STATS_H,
+        )
+
+    def __init_grid(self, mode: Mode) -> None:
+        self.__grid = Grid(self.grid_rect.topleft, mode, scale=self.size)
 
     @property
     def mode(self) -> Mode:
@@ -89,48 +142,12 @@ class Game:
     @mode.setter
     def mode(self, mode: Mode) -> None:
         self.__mode = mode
+        self.__configure_layout(mode)
+        self.__init_grid(mode)
         self.__grid.mode = mode
-        self.header.w = self.mode.cols * self.size + 2 * self.grid_border_width
-        self.new_button.rect.center = self.header.center
-        self.grid_container.w = (
-            self.mode.cols * self.size + 2 * self.grid_border_width
-        )
-        self.grid_container.h = (
-            self.mode.rows * self.size + 2 * self.grid_border_width
-        )
-        self.__grid.offset_x = self.grid_container.x + self.grid_border_width
-        self.__grid.offset_y = self.grid_container.y + self.grid_border_width
 
-        pygame.display.set_mode(
-            (
-                self.grid_container.w,
-                self.grid_container.h
-                + self.__TOP_MARGIN
-                + self.__STATS_HEIGHT,
-            )
-        )
+        pygame.display.set_mode((self.width, self.height + self.__STATS_H))
         self.__screen.fill(BG_COLOR)
-
-        self.rect_unflagged = pygame.rect.Rect(
-            self.header.left + self.grid_border_width * 2,
-            self.new_button.rect.top,
-            self.__DISPLAYS_WIDTH,
-            self.new_button.rect.h,
-        )
-        self.rect_elapsed = pygame.rect.Rect(
-            self.header.right
-            - self.__DISPLAYS_WIDTH
-            - 2 * self.grid_border_width,
-            self.new_button.rect.top,
-            self.__DISPLAYS_WIDTH,
-            self.new_button.rect.h,
-        )
-        self.rect_stats = pygame.rect.Rect(
-            self.grid_container.left,
-            self.grid_container.bottom,
-            self.header.width,
-            self.__STATS_HEIGHT,
-        )
 
     def start_new(self, mode: Optional[Mode] = None) -> None:
         if mode is not None:
@@ -139,14 +156,14 @@ class Game:
         self.time_displayed = 0
         self.__grid.reset_board(mode)
 
-        self.__artist.draw_border(self.header)
+        self.__artist.draw_border(self.header_rect)
         self.__artist.draw_score_value(
             self.rect_unflagged, self.__grid.left_unflagged
         )
         self.__artist.draw_score_value(self.rect_elapsed, self.time_displayed)
         self.new_button.dirty = True
         self.__artist.draw_new(self.new_button)
-        self.__artist.draw_border(self.grid_container)
+        self.__artist.draw_border(self.grid_container_rect)
         pygame.draw.rect(self.__screen, BG_COLOR, self.rect_stats)
 
     def __on_key_up(self, key: int) -> None:
