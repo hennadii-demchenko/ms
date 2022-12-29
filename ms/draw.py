@@ -4,6 +4,7 @@ from typing import Callable
 import pygame.draw
 from pygame import Color
 from pygame import Rect
+from pygame.image import load as load_image
 
 BG_COLOR = Color(0xC0, 0xC0, 0xC0)
 SHADOW_COLOR = Color(0x80, 0x80, 0x80)
@@ -20,8 +21,40 @@ NUM_COLORS = {
     8: SHADOW_COLOR,
 }
 ROOT_DIR = Path(__file__).parent.parent
+SPRITE_DIR = ROOT_DIR / "sprites"
 
 T_CALLBACK = Callable[..., None]
+
+
+class SpriteLib:
+    FLAG: pygame.Surface
+    MINE: pygame.Surface
+    FALSE_MINE: pygame.Surface
+    EXPLODED_MINE: pygame.Surface
+    UNOPENED: pygame.Surface
+    EMPTY: pygame.Surface
+    GRID_FONT: pygame.font.Font
+
+    @classmethod
+    def setup_sprites(cls, side: int) -> None:
+        size = side, side
+        font_size = int(side * 0.55)
+        cls.FLAG = load_image(SPRITE_DIR / "flag.png").convert()
+        cls.MINE = load_image(SPRITE_DIR / "mine.png").convert()
+        cls.FALSE_MINE = load_image(SPRITE_DIR / "false_mine.png").convert()
+        cls.EXPLODED_MINE = load_image(
+            SPRITE_DIR / "mine_exploded.png"
+        ).convert()
+        cls.UNOPENED = load_image(SPRITE_DIR / "unopened.png").convert()
+        cls.EMPTY = load_image(SPRITE_DIR / "empty.png").convert()
+
+        cls.FLAG = pygame.transform.scale(cls.FLAG, size)
+        cls.MINE = pygame.transform.scale(cls.MINE, size)
+        cls.FALSE_MINE = pygame.transform.scale(cls.FALSE_MINE, size)
+        cls.EXPLODED_MINE = pygame.transform.scale(cls.EXPLODED_MINE, size)
+        cls.UNOPENED = pygame.transform.scale(cls.UNOPENED, size)
+        cls.EMPTY = pygame.transform.scale(cls.EMPTY, size)
+        cls.GRID_FONT = pygame.font.Font(ROOT_DIR / "fonts/ms.otf", font_size)
 
 
 class Button:
@@ -74,26 +107,13 @@ class AssetArtist:
         self.nums_margin = 0
         self.nums_width = 0
 
-        self.flag = pygame.image.load(ROOT_DIR / "sprites/flag.png").convert()
-        self.mine = pygame.image.load(ROOT_DIR / "sprites/mine.png").convert()
-        self.false_mine = pygame.image.load(
-            ROOT_DIR / "sprites/false_mine.png"
-        ).convert()
-        self.exploded_mine = pygame.image.load(
-            ROOT_DIR / "sprites/mine_exploded.png"
-        ).convert()
-        self.unopened = pygame.image.load(
-            ROOT_DIR / "sprites/unopened.png"
-        ).convert()
         self.new_pressed = pygame.image.load(
             ROOT_DIR / "sprites/new_pressed.png"
         ).convert()
         self.new_unpressed = pygame.image.load(
             ROOT_DIR / "sprites/new_unpressed.png"
         ).convert()
-        self.empty = pygame.image.load(
-            ROOT_DIR / "sprites/empty.png"
-        ).convert()
+
         self.nums_bg = pygame.image.load(
             ROOT_DIR / "sprites/nums_bg.png"
         ).convert()
@@ -112,15 +132,6 @@ class AssetArtist:
             ROOT_DIR / "sprites/border_corner.png"
         ).convert()
 
-        square_size = size, size
-        self.flag = pygame.transform.scale(self.flag, square_size)
-        self.mine = pygame.transform.scale(self.mine, square_size)
-        self.false_mine = pygame.transform.scale(self.false_mine, square_size)
-        self.exploded_mine = pygame.transform.scale(
-            self.exploded_mine, square_size
-        )
-        self.unopened = pygame.transform.scale(self.unopened, square_size)
-        self.empty = pygame.transform.scale(self.empty, square_size)
         self.new_pressed = pygame.transform.scale(
             self.new_pressed, self.__NEW_BUTTON_SIZE
         )
@@ -146,17 +157,11 @@ class AssetArtist:
         for num, image in self.nums_map.items():
             self.nums_map[num] = pygame.transform.scale(image, (width, height))
 
-    def draw_empty(self, rect: Rect) -> None:
-        self.__screen.blit(self.empty, rect)
-
-    def draw_unopen(self, rect: Rect) -> None:
-        self.__screen.blit(self.unopened, rect)
-
     def draw_cell_value(self, rect: Rect, value: int) -> None:
         if value == 0:
             return
 
-        text = self.font.render(str(value), True, NUM_COLORS[value])
+        text = self.font.render(str(value), False, NUM_COLORS[value])
         centered_position = (
             rect.left + (rect.w / 2 - text.get_width() / 2.33),
             rect.top + (rect.h / 2 - text.get_height() / 2),
@@ -223,13 +228,3 @@ class AssetArtist:
         self.__screen.blit(self.border_corner, top_right_corner_rect)
         self.__screen.blit(border_bot, border_bot_rect)
         self.__screen.blit(self.border_corner, bot_left_corner_rect)
-
-    def draw_flag(self, rect: Rect) -> None:
-        self.__screen.blit(self.flag, rect)
-
-    def draw_mine(self, rect: Rect, exploded: bool = False) -> None:
-        sprite = self.exploded_mine if exploded else self.mine
-        self.__screen.blit(sprite, rect)
-
-    def draw_false_mine(self, rect: Rect) -> None:
-        self.__screen.blit(self.false_mine, rect)

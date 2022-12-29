@@ -4,6 +4,7 @@ from typing import Iterator
 from typing import Optional
 
 import pygame
+from pygame.sprite import Group
 from pygame.time import Clock
 
 from ms.base import Grid
@@ -12,6 +13,7 @@ from ms.base import T_COORD
 from ms.draw import AssetArtist
 from ms.draw import BG_COLOR
 from ms.draw import Button
+from ms.draw import SpriteLib
 
 
 @contextmanager
@@ -37,7 +39,7 @@ class Game:
 
     quit_invoked: bool = False
     size: int = 40  # TODO configure
-    __FRAME_RATE = 100
+    __FRAME_RATE = 75
     __NEW_BUTTON_SIZE = 75
     __DISPLAYS_WIDTH = 110  # FIXME bad name
     __TOP_MARGIN = 100
@@ -47,6 +49,7 @@ class Game:
         pygame.MOUSEBUTTONUP,
         pygame.MOUSEMOTION,
     ]
+    __KEYBOARD_EVENTS = [pygame.QUIT, pygame.KEYUP]
     __mode: Mode
 
     def __init__(self, mode: Mode = Mode.EASY) -> None:
@@ -60,6 +63,8 @@ class Game:
         self.border = self.size // 5
         self.margin = self.border
         self.__artist = AssetArtist(self.size, self.border)
+        self.__cells_group = Group()
+        SpriteLib.setup_sprites(side=self.size)
 
         self.left: bool = False
         self.clicked_left: bool = False
@@ -133,7 +138,7 @@ class Game:
         )
 
     def __init_grid(self, mode: Mode) -> None:
-        self.__grid = Grid(self.grid_rect.topleft, mode, scale=self.size)
+        self.__grid = Grid(self.grid_rect, mode, scale=self.size)
 
     @property
     def mode(self) -> Mode:
@@ -143,10 +148,11 @@ class Game:
     def mode(self, mode: Mode) -> None:
         self.__mode = mode
         self.__configure_layout(mode)
+        new_size = self.width, self.height + self.__STATS_H
+        if pygame.display.get_window_size() != new_size:
+            pygame.display.set_mode(new_size)
         self.__init_grid(mode)
         self.__grid.mode = mode
-
-        pygame.display.set_mode((self.width, self.height + self.__STATS_H))
         self.__screen.fill(BG_COLOR)
 
     def start_new(self, mode: Optional[Mode] = None) -> None:
@@ -179,16 +185,17 @@ class Game:
     def __update_mouse_over(self, pos: T_COORD) -> None:
         hovered = self.__grid.get_cell_under(pos)
 
-        for cell in self.__grid:
+        for button in self.__grid:
+            button.dirty = True
             if not hovered:  # out of grid bounds
-                cell.is_pressed = False
+                button.is_pressed = False
             elif self.left and not hovered.is_opened:  # highlight just one
-                cell.is_pressed = cell is hovered and not cell.is_flagged
+                button.is_pressed = button is hovered and not button.is_flagged
             elif self.left and hovered.is_opened:
                 eligible = self.__grid.eligible_neighbors(*hovered.pos)
-                cell.is_pressed = cell in eligible  # highlight possible
+                button.is_pressed = button in eligible  # highlight possible
             else:
-                cell.is_pressed = False  # release otherwise
+                button.is_pressed = False  # release otherwise
 
     def __on_l_mouse_up(self, pos: T_COORD) -> None:
         if self.new_button.rect.collidepoint(*pos):
@@ -270,51 +277,55 @@ class Game:
         pygame.event.set_allowed(pygame.MOUSEMOTION)
         pygame.event.set_allowed(pygame.KEYUP)
 
-    def handle_events(self) -> None:
-        pygame.event.pump()
-        for event in pygame.event.get([pygame.QUIT, pygame.KEYUP]):
+    def __handle_keyboard(self) -> None:
+        for event in pygame.event.get(self.__KEYBOARD_EVENTS):
             if event.type == pygame.QUIT:
                 self.quit_invoked = True
 
             if event.type == pygame.KEYUP:
                 self.__on_key_up(event.key)
 
+    def __maybe_handle_game_over(self) -> None:
+        if not self.is_over:
+            return
+
+        if self.running and not any([b.has_exploded for b in self.__grid]):
+            completed_at = perf_counter() - self.__started_at
+            self.__artist.draw_stats_value(
+                self.rect_stats, f"Completed in {completed_at:.03f}"
+            )
+
+        self.__grid.reveal()
+        self.running = False
+
+    def __update_grid(self) -> None:
+        for cell in self.__grid:
+            cell.draw(self.is_over)
+
+    def event_loop(self) -> None:
+        self.__handle_keyboard()
         self.__handle_mouse()
 
-    def update(self) -> None:
         if not self.is_over and self.__grid.generated:
             self.__handle_game_timer()
 
         self.is_over = self.__grid.generated and self.__grid.is_finished
 
-        if self.is_over:
-            if self.running and not any([c.has_exploded for c in self.__grid]):
-                completed_at = perf_counter() - self.__started_at
-                self.__artist.draw_stats_value(
-                    self.rect_stats, f"Completed in {completed_at:.03f}"
-                )
-
-            self.__grid.reveal()
-            self.running = False
-
-        for cell in self.__grid:
-            cell.draw(self.__artist, self.is_over)
+        self.__maybe_handle_game_over()
+        self.__update_grid()
 
         self.__clock.tick(self.__FRAME_RATE)
-
         pygame.display.flip()
 
 
 def main() -> int:
-
     with pygame_runner():
         game = Game()
         game.setup_events()
         game.start_new()  # FIXME REMOVE
 
         while not game.quit_invoked:
-            game.handle_events()
-            game.update()
+            game.event_loop()
 
     return 0
 

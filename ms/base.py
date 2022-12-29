@@ -1,20 +1,31 @@
 import random
-from dataclasses import dataclass
-from dataclasses import field
 from enum import Enum
 from time import perf_counter
 from typing import Any
 from typing import Iterator
 from typing import Optional
+from typing import TypeVar
 
 import pygame
+from pygame import Color
+from pygame.rect import Rect
 
-from ms.draw import AssetArtist
 from ms.draw import BG_COLOR
+from ms.draw import SHADOW_COLOR
+from ms.draw import SpriteLib
 
 T_COORD = tuple[int, int]
-T_GAME_FIELD = list[list["Cell"]]
-DEBUG = False
+NUM_COLORS = {
+    0: BG_COLOR,
+    1: Color(0x0, 0x0, 0xFF),
+    2: Color(0x0, 0x80, 0x0),
+    3: Color(0xFF, 0x0, 0x0),
+    4: Color(0x0, 0x0, 0x80),
+    5: Color(0x80, 0x0, 0x0),
+    6: Color(0x0, 0x80, 0x80),
+    7: Color(0x0, 0x0, 0x0),
+    8: SHADOW_COLOR,
+}
 
 
 class Mode(Enum):
@@ -40,21 +51,24 @@ class Mode(Enum):
         return self.value[3]
 
 
-@dataclass(slots=True, eq=False)
+T_Co_Cell = TypeVar("T_Co_Cell", bound="Cell", covariant=True)
+
+
 class Cell:
-    offset: T_COORD
-    x: int
-    y: int
-    size: int
-    value: int = 0
-    _rect: pygame.Rect = None
-    neighbors: list["Cell"] = field(default_factory=lambda: list())
-    is_pressed: bool = False
-    has_exploded: bool = False
-    is_opened: bool = False
-    has_mine: bool = False
-    is_flagged: bool = False
-    dirty: bool = False
+    def __init__(self, x: int, y: int, rect: Rect, value: int = 0):
+        self.x = x
+        self.y = y
+        self.rect = rect
+        self.value = value
+        self.is_pressed = False
+        self.has_exploded = False
+        self.is_opened = False
+        self.has_mine = False
+        self.is_flagged = False
+
+    @property
+    def pos(self) -> T_COORD:
+        return self.x, self.y
 
     def __eq__(self, other: Any) -> bool:
         return (
@@ -62,57 +76,6 @@ class Cell:
             and other.x == self.x
             and other.y == self.y
         )
-
-    @property
-    def rect(self) -> pygame.Rect:
-        """Lazy rect"""
-        if self._rect is None:
-            self._rect = pygame.draw.rect(
-                pygame.display.get_surface(),
-                BG_COLOR,
-                (*self.screen_pos, self.size, self.size),
-            )
-
-        return self._rect
-
-    @property
-    def pos(self) -> T_COORD:
-        return self.x, self.y
-
-    @property
-    def screen_pos(self) -> T_COORD:
-        return (
-            self.x * self.size + self.offset[0],
-            self.y * self.size + self.offset[1],
-        )
-
-    def draw(self, assets: AssetArtist, is_game_over: bool) -> None:
-        if self.dirty:
-            return
-
-        if DEBUG:
-            pygame.display.get_surface().blit(
-                assets.debug_font.render(str(self.pos), True, "black"),
-                self.rect.midleft,
-            )
-
-        if self.is_pressed:
-            assets.draw_empty(self.rect)
-        elif self.is_flagged:
-            if not self.has_mine and is_game_over:
-                assets.draw_false_mine(self.rect)
-            else:
-                assets.draw_flag(self.rect)
-        elif not self.is_opened:
-            assets.draw_unopen(self.rect)
-        elif self.is_opened:
-            self.dirty = True
-            if self.has_mine:
-                assets.draw_mine(self.rect, exploded=self.has_exploded)
-            else:
-                assets.draw_empty(self.rect)
-                if self.value != 0:
-                    assets.draw_cell_value(self.rect, self.value)
 
     def __add__(self, other: int) -> "Cell":
         assert isinstance(other, int)
@@ -125,16 +88,84 @@ class Cell:
     __radd__ = __add__
 
 
+class CellButton(Cell):
+    __tracked__ = [
+        "is_pressed",
+        "has_exploded",
+        "is_opened",
+        "has_mine",
+        "is_flagged",
+    ]
+
+    def __init__(self, x: int, y: int, rect: Rect, value: int = 0):
+        super().__init__(x, y, rect, value=value)
+        self.neighbors: list["CellButton"] = []
+        self.dirty = True
+
+    def __setattr__(self, key: Any, value: Any) -> None:
+        if (
+            hasattr(self, key)
+            and key in self.__tracked__
+            and value != self.__getattribute__(key)
+        ):
+            self.dirty = True
+        super().__setattr__(key, value)
+
+    def draw(self, is_game_over: bool) -> None:
+        if not self.dirty:
+            return
+
+        screen = pygame.display.get_surface()
+
+        if self.is_pressed:
+            screen.blit(SpriteLib.EMPTY, self.rect)
+        elif self.is_flagged:
+            if not self.has_mine and is_game_over:
+                screen.blit(SpriteLib.FALSE_MINE, self.rect)
+            else:
+                screen.blit(SpriteLib.FLAG, self.rect)
+        elif not self.is_opened:
+            screen.blit(SpriteLib.UNOPENED, self.rect)
+        elif self.is_opened:
+            if self.has_mine:
+                if self.has_exploded:
+                    screen.blit(SpriteLib.EXPLODED_MINE, self.rect)
+                else:
+                    screen.blit(SpriteLib.MINE, self.rect)
+            else:
+                screen.blit(SpriteLib.EMPTY, self.rect)
+                if self.value != 0:
+                    text = SpriteLib.GRID_FONT.render(
+                        str(self.value), True, NUM_COLORS[self.value]
+                    )
+                    screen.blit(
+                        text,
+                        (
+                            self.rect.left
+                            + 0.5 * self.rect.w
+                            - 0.5 * text.get_width(),
+                            self.rect.top
+                            + 0.5 * self.rect.h
+                            - 0.5 * text.get_height(),
+                        ),
+                    )
+
+        self.dirty = False
+
+
+T_GAME_FIELD = list[list[CellButton]]
+
+
 class Grid:
     mines: list[T_COORD] = []
     board: T_GAME_FIELD = []
 
-    def __init__(self, offset: T_COORD, mode: Mode, scale: int):
+    def __init__(self, rect: Rect, mode: Mode, scale: int):
         self.mode = mode
         self.__rows = self.mode.rows
         self.__cols = self.mode.cols
         self.__scale = scale
-        self.offset_x, self.offset_y = offset
+        self.rect = rect
         self.generated = False
         self.revealed = False
         self.__started_at: float = perf_counter()
@@ -144,7 +175,7 @@ class Grid:
         self.num_flagged = 0
         self.reset_board()
 
-    def __iter__(self) -> Iterator[Cell]:
+    def __iter__(self) -> Iterator[CellButton]:
         yield from self.cells()
 
     @property
@@ -175,7 +206,7 @@ class Grid:
             for y, _ in enumerate(col)
         )
 
-    def cells(self) -> Iterator[Cell]:
+    def cells(self) -> Iterator[CellButton]:
         yield from (cell for col in self.board for cell in col)
 
     def neighbor_coordinates(self, x: int, y: int) -> Iterator[T_COORD]:
@@ -199,20 +230,20 @@ class Grid:
             if isinstance(neigh, tuple)
         )
 
-    def unopened(self) -> Iterator[Cell]:
+    def unopened(self) -> Iterator[CellButton]:
         yield from (cell for cell in self if not cell.is_opened)
 
-    def unopened_neighbors(self, x: int, y: int) -> Iterator[Cell]:
+    def unopened_neighbors(self, x: int, y: int) -> Iterator[CellButton]:
         yield from (n for n in self.at(x, y).neighbors if not n.is_opened)
 
-    def eligible_neighbors(self, x: int, y: int) -> Iterator[Cell]:
+    def eligible_neighbors(self, x: int, y: int) -> Iterator[CellButton]:
         yield from (
             n
             for n in self.at(x, y).neighbors
             if not n.is_opened and not n.is_flagged
         )
 
-    def flagged_neighbors(self, x: int, y: int) -> Iterator[Cell]:
+    def flagged_neighbors(self, x: int, y: int) -> Iterator[CellButton]:
         yield from (n for n in self.at(x, y).neighbors if n.is_flagged)
 
     def flags_around(self, x: int, y: int) -> int:
@@ -221,7 +252,16 @@ class Grid:
     def __generate_cells(self) -> T_GAME_FIELD:
         return [
             [
-                Cell((self.offset_x, self.offset_y), x, y, self.__scale)
+                CellButton(
+                    x,
+                    y,
+                    Rect(
+                        self.rect.left + x * self.__scale,
+                        self.rect.top + y * self.__scale,
+                        self.__scale,
+                        self.__scale,
+                    ),
+                )
                 for y in range(self.__rows)
             ]
             for x in range(self.__cols)
@@ -232,12 +272,12 @@ class Grid:
             [c for c in self.coordinates() if c != avoid], self.num_mines
         )
 
-    def at(self, x: int, y: int) -> Cell:
-        assert 0 <= x <= self.__cols - 1
-        assert 0 <= y <= self.__rows - 1
+    def at(self, x: int, y: int) -> CellButton:
+        assert 0 <= x <= self.__cols - 1, x
+        assert 0 <= y <= self.__rows - 1, y
         return self.board[x][y]
 
-    def get_cell_under(self, pos: T_COORD) -> Optional[Cell]:
+    def get_cell_under(self, pos: T_COORD) -> Optional[CellButton]:
         x, y = pos
         x_min, y_min = self.at(0, 0).rect.topleft
         x_max, y_max = self.at(
@@ -265,7 +305,7 @@ class Grid:
         self.num_flagged = 0
         self.board = self.__generate_cells()
 
-    def on_open(self, cell: Cell) -> None:
+    def on_open(self, cell: CellButton) -> None:
         # FIXME: replace recursion with dfs traversal
         if cell.is_flagged:
             return
@@ -287,6 +327,8 @@ class Grid:
             if cell.value == 0:
                 self.on_open(neigh)
 
+        cell.dirty = True
+
     def generate_board(self, starts_at: T_COORD) -> None:
         self.mines.clear()
         self.mines = self.__sample_mine_positions(starts_at)
@@ -303,7 +345,7 @@ class Grid:
         for cell in self:
             for neighbor in self.at(*cell.pos).neighbors:
                 if neighbor.has_mine:
-                    cell += 1
+                    cell.value += 1
 
         self.generated = True
         self.__started_at = perf_counter()
