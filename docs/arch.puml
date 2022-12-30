@@ -1,0 +1,121 @@
+@startuml
+skinparam linetype ortho
+skinparam nodesep 100
+
+Enum Mode {
+    EASY
+    MEDIUM
+    HARD
+}
+
+class Game {
+    settings: Settings
+    stats: Stats
+    timer
+    --
+    grid : Grid
+    ui: UI
+    --
+    grid_handler : GridDisplayMouseHandler
+    buttons_handler : UIMouseHandler
+    keys_handler : KeyboardHandler
+    --
+    store_a_setting() : None
+    event_loop() : None
+    start_new_game() : None
+}
+
+class Grid {
+    cells : list[Cell]
+    mode: Mode
+    generate()
+    reset()
+}
+
+class Cell {
+    pos
+    is_pressed : bool
+    has_exploded : bool
+    is_opened : bool
+    has_mine : bool
+    is_flagged : bool
+}
+
+class DrawableCell {
+    dirty : bool
+    image : Sprite
+    color_overlay : Optional[Color]
+    draw() : None
+}
+
+class UI {
+    new_game_button : Button
+    mines_display
+    elapsed_display
+    main_window: window
+    end_game_stats: window
+    grid : Grid
+    drawable_grid: dict[pos, DrawableCell]
+    --
+    start_new_game()
+    draw_conunters()
+    draw_buttons()
+    draw_grid()
+    draw_stats()
+    hide_stats()
+    draw_settings()
+    hide_settings()
+    --
+    on_draw()
+}
+note left of UI::drawable_grid
+  lazily filled,
+  tracks/handles (re)draw
+end note
+
+abstract class MouseHandler {
+    on_mouse_down() : None
+    on_mouse_up() : None
+    on_mouse_drag() : None
+}
+class GridDisplayMouseHandler
+class UIMouseHandler
+class KeyboardHandler {
+    handle_keypress() -> None
+}
+
+class Settings #lightgrey {
+    None load_persistent()
+
+}
+
+class Stats #lightgrey {
+    current_game : GameStats
+    historical : PlayerStats
+    None save_game(game: GameStats)
+}
+
+class Solver #lightgrey {
+    hint_single_move(grid : Grid) : Optional[tuple[mines_pos, empty_pos]]
+}
+
+
+Game o-d- Grid : has
+Game o-r- Settings : loads
+Game -u[hidden]- Mode
+Game -u[hidden]- Solver
+Game o-l- Stats : tracks
+Game *-d- UI: has
+
+Grid *-r- "*" Cell : contains
+DrawableCell o-u- Cell : aggregates
+
+UI *-r- Grid : contains
+UI *-d- "*" DrawableCell : contains
+UI *-d-- GridDisplayMouseHandler : decorates
+UI *-d-- UIMouseHandler : decorates
+UI *-d-- KeyboardHandler : decorates
+GridDisplayMouseHandler <|-- MouseHandler
+UIMouseHandler <|-- MouseHandler
+
+@enduml
