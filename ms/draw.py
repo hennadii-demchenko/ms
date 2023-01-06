@@ -6,9 +6,9 @@ from pygame import Color
 from pygame import Rect
 from pygame.image import load as load_image
 
-BG_COLOR = Color(0xC0, 0xC0, 0xC0)
-SHADOW_COLOR = Color(0x80, 0x80, 0x80)
-HIGHLIGHT_COLOR = Color(0xFF, 0xFF, 0xFF)
+from ms.color import BG_COLOR
+from ms.color import SHADOW_COLOR
+
 NUM_COLORS = {
     0: BG_COLOR,
     1: Color(0x0, 0x0, 0xFF),

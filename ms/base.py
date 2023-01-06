@@ -10,8 +10,8 @@ import pygame
 from pygame import Color
 from pygame.rect import Rect
 
-from ms.draw import BG_COLOR
-from ms.draw import SHADOW_COLOR
+from ms.color import BG_COLOR
+from ms.color import SHADOW_COLOR
 from ms.draw import SpriteLib
 
 T_COORD = tuple[int, int]
